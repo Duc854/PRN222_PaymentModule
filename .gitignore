@@ -1,0 +1,26 @@
+# ===============================
+# Visual Studio
+# ===============================
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ===============================
+# Build results
+# ===============================
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+# ===============================
+# Config / Secrets
+# ===============================
+appsettings.Development.json
+appsettings.*.json
+secrets.json
