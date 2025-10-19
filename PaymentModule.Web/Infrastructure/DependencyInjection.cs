@@ -1,5 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using PaymentModule.Data.Entities;
+using PaymentModule.Business.Abstractions;
+using PaymentModule.Business.Services;
+using PaymentModule.Data;
+using PaymentModule.Data.Abstractions;
+using PaymentModule.Data.Repositories;
 
 namespace PaymentModule.Web.Infrastructure
 {
@@ -12,9 +16,12 @@ namespace PaymentModule.Web.Infrastructure
             services.AddDbContext<CloneEbayDbContext>(options => options.UseSqlServer(connectionString));
 
             //Add Services
-
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IOrderTableService, OrderTableService>();
             //Add Repositories
-
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IOrderTableRepository, OrderTableRepository>();
+            services.AddScoped<IOrderItemRepository, OrderItemRepository>();
             return services;
         }
     }
