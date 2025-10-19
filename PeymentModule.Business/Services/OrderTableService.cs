@@ -53,7 +53,7 @@ namespace PaymentModule.Business.Services
 
             return new UserCartOutputDto
             {
-                TotalPrice = order.TotalPrice.Value,
+                TotalPrice = order.TotalPrice.GetValueOrDefault(),
                 Items = itemDtos
             };
         }

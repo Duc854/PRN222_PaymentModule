@@ -21,13 +21,15 @@ namespace PaymentModule.Web.Controllers
             return View();
         }
 
+
+        //Trang access denied đang gọi đến view này nên nếu ko xài thì nhớ sửa accessdenied
         [HttpGet]
         public IActionResult Login()
         {
             return View();
         }
 
-            [HttpPost]
+        [HttpPost]
         public async Task<IActionResult> Login(string themViewModelVaoDay)
         {
             var input = new LoginInputDto();

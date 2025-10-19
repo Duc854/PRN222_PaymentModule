@@ -10,6 +10,7 @@ namespace PaymentModule.Business.Abstractions
 {
     public interface IUserService
     {
-        Task<LoginOutputDto> UserLogin(LoginInputDto dto);
+        Task<LoginOutputDto> UserLogin(LoginInputDto input);
+        Task<UserNavbarOuputDto> GetNavbarInfoAsync(UserNavbarInputDto input);
     }
 }

@@ -15,9 +15,4 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.20" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Abstractions\" />
-    <Folder Include="Repositories\" />
-  </ItemGroup>
-
 </Project>

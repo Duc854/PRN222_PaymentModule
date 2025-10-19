@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using PaymentModule.Data.Entities;
 
-namespace PaymentModule.Data.Entities;
+namespace PaymentModule.Data;
 
 public partial class CloneEbayDbContext : DbContext
 {

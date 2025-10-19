@@ -19,4 +19,8 @@
     <ProjectReference Include="..\PeymentModule.Business\PaymentModule.Business.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Views\User\" />
+  </ItemGroup>
+
 </Project>

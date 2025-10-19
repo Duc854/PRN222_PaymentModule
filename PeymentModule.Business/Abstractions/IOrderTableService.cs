@@ -8,8 +8,8 @@ using System.Threading.Tasks;
 
 namespace PaymentModule.Business.Abstractions
 {
-    public interface IOrderTableServie
+    public interface IOrderTableService
     {
-        Task<UserCartOutputDto> GetUserCart(UserCartInputDto input);
+        Task<UserCartOutputDto> GetCartByUserId(UserCartInputDto input);
     }
 }

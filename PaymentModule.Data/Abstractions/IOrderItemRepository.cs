@@ -9,6 +9,6 @@ namespace PaymentModule.Data.Abstractions
 {
     public interface IOrderItemRepository
     {
-        Task<IEnumerable<OrderItem>> GetOrderItemsByOrderId(string orderId);
+        Task<IEnumerable<OrderItem>> GetOrderItemsByOrderId(int orderId);
     }
 }
