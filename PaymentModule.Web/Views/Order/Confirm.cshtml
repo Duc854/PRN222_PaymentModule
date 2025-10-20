@@ -1,0 +1,129 @@
+﻿@model PaymentModule.Business.Dtos.OutputDtos.UserCartOutputDto
+@{
+    ViewData["Title"] = "Xác nhận đơn hàng";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var addr = ViewBag.Address;
+}
+
+<section class="order-confirm">
+    <div class="confirm-container">
+        <h2>Xác nhận đơn hàng</h2>
+
+        <div class="confirm-box">
+            <h4>Địa chỉ giao hàng</h4>
+            @if (addr != null)
+            {
+                <p><strong>@addr.FullName</strong></p>
+                <p>@addr.Street</p>
+                <p>@addr.City</p>
+                <p>@addr.Country</p>
+                <p>Điện thoại: @addr.Phone</p>
+            }
+            else
+            {
+
+                <p>⚠️ Chưa có địa chỉ giao hàng</p>
+            }
+        </div>
+
+        <div class="confirm-box">
+            <h4>Sản phẩm</h4>
+            @foreach (var item in Model.Items)
+            {
+                <div class="confirm-item">
+                    <img src="@item.Images" alt="@item.Title" />
+                    <div>
+                        <p>@item.Title</p>
+                        <p>Số lượng: @item.Quantity × $@item.Price</p>
+                    </div>
+                    <p><strong>$@item.TotalPrice</strong></p>
+                </div>
+            }
+        </div>
+
+        <div class="confirm-box summary">
+            <h4>Tóm tắt đơn hàng</h4>
+            <p>Tiền hàng: $@ViewBag.Subtotal</p>
+            <p>Phí vận chuyển: $@ViewBag.Shipping</p>
+            <p>Giảm giá: -$@ViewBag.Discount</p>
+            @if (ViewBag.Coupon != null)
+            {
+                <p>Mã giảm giá đã dùng: <strong>@ViewBag.Coupon</strong></p>
+            }
+            <hr />
+            <p class="total">Tổng thanh toán: <strong>$@ViewBag.Total</strong></p>
+        </div>
+
+        <div class="confirm-actions">
+            <button class="btn-back" onclick="window.location.href='/cart/checkout'">← Quay lại</button>
+            <button class="btn-confirm" onclick="window.location.href='/order/PaymentSuccess'">Xác nhận đặt hàng</button>
+        </div>
+    </div>
+</section>
+
+<style>
+    .confirm-container {
+        max-width: 850px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 10px;
+        padding: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .confirm-box {
+        background: #fafafa;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+
+    .confirm-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+        padding: 10px 0;
+    }
+
+        .confirm-item img {
+            width: 70px;
+            height: 70px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+    .total {
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .confirm-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .btn-back, .btn-confirm {
+        border: none;
+        border-radius: 30px;
+        padding: 12px 24px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .btn-back {
+        background: #ddd;
+        color: #111;
+    }
+
+    .btn-confirm {
+        background: #0064d2;
+        color: #fff;
+    }
+
+        .btn-confirm:hover {
+            background: #0654ba;
+        }
+</style>

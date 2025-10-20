@@ -1,0 +1,46 @@
+﻿@{
+    ViewData["Title"] = "Payment Success";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<section class="payment-success">
+    <div class="success-container">
+        <img src="https://cdn-icons-png.flaticon.com/512/845/845646.png" alt="Success" class="success-icon" />
+        <h2>Thanh toán thành công!</h2>
+        <p>Đơn hàng của bạn đã được xác nhận.</p>
+        <p>Mã đơn hàng: <strong>#12345</strong></p>
+        <p>Phương thức: <strong>Thanh toán khi nhận hàng (COD)</strong></p>
+        <a href="/order/OrderHistory" class="btn btn-primary">Xem lịch sử đơn hàng</a>
+    </div>
+</section>
+
+<style>
+    .payment-success {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 70vh;
+    }
+    .success-container {
+        text-align: center;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 40px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .success-icon {
+        width: 80px;
+        margin-bottom: 20px;
+    }
+    .btn-primary {
+        background: #0064d2;
+        color: #fff;
+        border: none;
+        border-radius: 30px;
+        padding: 12px 24px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+</style>

@@ -1,0 +1,142 @@
+﻿@model PaymentModule.Business.Dtos.OutputDtos.UserCartOutputDto
+@{
+    ViewData["Title"] = "Shopping Cart";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<section class="shopping-cart-page">
+    <div class="cart-container">
+        <div class="cart-left">
+            <h2 class="cart-title">Shopping cart</h2>
+
+            @if (Model == null || Model.Items.Count == 0)
+            {
+                <div class="empty-cart">
+                    <h4>Your cart is empty</h4>
+                    <p>Time to start shopping!</p>
+                    <a href="/Home/Index" class="btn btn-primary">Go Shopping</a>
+                </div>
+            }
+            else
+            {
+                @foreach (var item in Model.Items)
+                {
+                    <div class="cart-item" data-id="@item.OrderItemId" data-total="@item.TotalPrice">
+                        <img src="@item.Images" alt="@item.Title" class="cart-item-img" />
+                        <div class="cart-item-info">
+                            <p class="cart-item-title">@item.Title</p>
+                            <p class="cart-item-seller">Sold by eBay Seller</p>
+                            <div class="cart-item-actions">
+                                <div class="cart-qty">
+                                    <label>Qty:</label>
+                                    <input type="number" min="1" value="@item.Quantity" data-id="@item.OrderItemId" class="qty-input" />
+                                </div>
+                                <button class="btn-remove" data-id="@item.OrderItemId">Remove</button>
+                            </div>
+                        </div>
+                        <div class="cart-item-price">
+                            <p>$@item.Price.ToString("0.00")</p>
+                            <p class="subtotal">Subtotal: <strong>$@item.TotalPrice.ToString("0.00")</strong></p>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="cart-right">
+            <div class="cart-summary-box">
+                <h4>Order Summary</h4>
+                <p>Items: <strong id="item-count">@Model?.Items?.Count</strong></p>
+                <p>Subtotal: <strong id="subtotal-amount">$@Model?.TotalPrice.ToString("0.00")</strong></p>
+                <button class="btn-checkout" onclick="location.href='/cart/checkout'">Go to checkout</button>
+                <p class="cart-protect">🔒 Purchase protected by eBay Money Back Guarantee</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+
+        const subtotalEl = document.querySelector("#subtotal-amount");
+        const itemCountEl = document.querySelector("#item-count");
+
+        const safeFloat = v => {
+            const n = parseFloat(v);
+            return Number.isFinite(n) ? n : 0;
+        };
+
+        const recalcTotal = () => {
+            let total = 0;
+            document.querySelectorAll(".cart-item").forEach(it => {
+                total += safeFloat(it.getAttribute("data-total"));
+            });
+            return total;
+        };
+
+        const refreshSummary = () => {
+            subtotalEl.textContent = `$${recalcTotal().toFixed(2)}`;
+            itemCountEl.textContent = document.querySelectorAll(".cart-item").length;
+        };
+
+        // === Update quantity ===
+        document.querySelectorAll(".qty-input").forEach(inp => {
+            inp.addEventListener("change", async e => {
+                const id = e.target.getAttribute("data-id");
+                let qty = parseInt(e.target.value);
+                if (!Number.isFinite(qty) || qty < 1) qty = 1;
+
+                const res = await fetch('/cart/UpdateItem', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderItemId: id, quantity: qty }),
+                    credentials: 'include'
+                });
+
+                const data = await res.json();
+                if (!data.success) return;
+
+                const itemDiv = e.target.closest(".cart-item");
+                const unitPrice = safeFloat(itemDiv.querySelector(".cart-item-price p").textContent.replace("$", ""));
+                const newSubtotal = data.itemSubtotal > 0 ? data.itemSubtotal : unitPrice * qty;
+
+                itemDiv.setAttribute("data-total", newSubtotal);
+                itemDiv.querySelector(".subtotal strong").textContent = `$${newSubtotal.toFixed(2)}`;
+
+                subtotalEl.textContent = `$${(data.total ?? recalcTotal()).toFixed(2)}`;
+                itemCountEl.textContent = data.count ?? document.querySelectorAll(".cart-item").length;
+
+                if (typeof updateCartCount === "function") updateCartCount();
+            });
+        });
+
+        // === Remove item ===
+        document.querySelectorAll(".btn-remove").forEach(btn => {
+            btn.addEventListener("click", async e => {
+                const id = e.target.getAttribute("data-id");
+
+                const res = await fetch('/cart/DeleteItem', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderItemId: id }),
+                    credentials: 'include'
+                });
+
+                const data = await res.json();
+                if (!data.success) return;
+
+                const row = document.querySelector(`.cart-item[data-id="${id}"]`);
+                if (row) row.remove();
+
+                subtotalEl.textContent = `$${(data.total ?? recalcTotal()).toFixed(2)}`;
+                itemCountEl.textContent = data.count ?? document.querySelectorAll(".cart-item").length;
+
+                if (typeof updateCartCount === "function") updateCartCount();
+
+                if ((data.count ?? 0) === 0)
+                    location.reload();
+            });
+        });
+    });
+</script>
+

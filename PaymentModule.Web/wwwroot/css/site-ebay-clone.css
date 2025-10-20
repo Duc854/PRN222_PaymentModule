@@ -1,0 +1,394 @@
+/* base */
+* {
+    box-sizing: border-box
+}
+
+body {
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    margin: 0;
+    color: #111;
+    background: #fff
+}
+
+a {
+    color: inherit
+}
+
+/* topbar */
+.topbar {
+    background: #ffffff;
+    border-bottom: 1px solid #eee
+}
+
+.topbar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px
+}
+
+.logo-mark {
+    font-weight: 800;
+    color: #e74c3c;
+    background: linear-gradient(90deg,#ffde59,#ff8a00);
+    padding: 6px 10px;
+    border-radius: 6px
+}
+
+.brand-text {
+    font-weight: 700;
+    font-size: 20px
+}
+
+.mini-links a {
+    margin-left: 12px;
+    color: #222;
+    font-size: 14px;
+    opacity: .9
+}
+
+.topbar-right .link {
+    margin-left: 12px;
+    font-size: 14px;
+    color: #222
+}
+
+.icon-btn {
+    margin-left: 8px;
+    border: 0;
+    background: transparent;
+    font-size: 18px;
+    cursor: pointer
+}
+
+/* header main */
+.header-main {
+    background: #fff
+}
+
+.header-inner {
+    max-width: 1200px;
+    margin: 8px auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px
+}
+
+.search-left {
+    min-width: 160px
+}
+
+.category-btn {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer
+}
+
+.search-form {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+    align-items: center
+}
+
+.search-input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 16px
+}
+
+.search-cat {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ddd
+}
+
+.search-submit {
+    padding: 12px 18px;
+    background: #0470e3;
+    color: #fff;
+    border-radius: 8px;
+    border: 0;
+    cursor: pointer
+}
+
+.sell-btn {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    background: #fff
+}
+
+/* categories nav */
+.main-categories {
+    border-top: 1px solid #f1f1f1;
+    background: #fff
+}
+
+    .main-categories ul {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        gap: 18px;
+        padding: 10px 16px;
+        list-style: none;
+        overflow: auto
+    }
+
+    .main-categories li {
+        font-size: 14px;
+        color: #333
+    }
+
+/* hero yellow */
+.hero-yellow {
+    background: #f6b600;
+    padding: 48px 16px;
+    display: flex;
+    justify-content: center
+}
+
+    .hero-yellow .hero-left {
+        max-width: 540px
+    }
+
+    .hero-yellow h1 {
+        font-size: 48px;
+        margin: 0 0 10px 0;
+        font-weight: 800;
+        color: #3a2f00
+    }
+
+.hero-sub {
+    font-size: 18px;
+    color: #3a2f00;
+    margin-bottom: 18px
+}
+
+.cta-btn {
+    display: inline-block;
+    padding: 12px 20px;
+    background: #3a2f00;
+    color: #fff;
+    border-radius: 28px;
+    text-decoration: none;
+    font-weight: 700
+}
+
+.hero-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 180px
+}
+
+.hero-cats {
+    display: flex;
+    gap: 28px;
+    align-items: center
+}
+
+.hero-cat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #3a2f00;
+    font-weight: 700
+}
+
+    .hero-cat img {
+        width: 120px;
+        height: 120px;
+        object-fit: contain
+    }
+
+/* deals section */
+.deals-section {
+    max-width: 1200px;
+    margin: 28px auto;
+    padding: 0 16px
+}
+
+.section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between
+}
+
+    .section-head h2 {
+        font-size: 28px;
+        margin: 0
+    }
+
+.muted {
+    color: #777;
+    margin: 6px 0 12px 0
+}
+
+/* horizontal scroll row */
+.deals-row {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding: 12px 0;
+    scroll-behavior: smooth
+}
+
+    .deals-row::-webkit-scrollbar {
+        height: 10px
+    }
+
+    .deals-row::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 10px
+    }
+
+/* product card */
+.product-card {
+    min-width: 260px;
+    border-radius: 14px;
+    border: 1px solid #eee;
+    padding: 12px;
+    background: #fff;
+    position: relative
+}
+
+.card-image {
+    height: 180px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f6f6f6;
+    overflow: hidden
+}
+
+    .card-image img {
+        max-width: 100%;
+        max-height: 100%
+    }
+
+.card-body {
+    padding-top: 10px
+}
+
+.title {
+    font-size: 14px;
+    font-weight: 600;
+    height: 44px;
+    overflow: hidden
+}
+
+.price {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px
+}
+
+.now {
+    font-weight: 800;
+    font-size: 18px;
+    color: #111
+}
+
+.old {
+    font-size: 13px;
+    color: #888;
+    text-decoration: line-through
+}
+
+.fav-icon {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    border-radius: 18px;
+    padding: 6px;
+    background: #fff;
+    border: 1px solid #eee
+}
+
+/* footer */
+.site-footer {
+    background: #fafafa;
+    border-top: 1px solid #eee;
+    padding: 28px 16px
+}
+
+.footer-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 24px
+}
+
+    .footer-grid h4 {
+        margin-bottom: 8px
+    }
+
+.footer-bottom {
+    max-width: 1200px;
+    margin: 20px auto 0 auto;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #666
+}
+
+/* responsive */
+@media(max-width:1000px) {
+    .hero-yellow h1 {
+        font-size: 36px
+    }
+
+    .deals-row .product-card {
+        min-width: 220px
+    }
+
+    .footer-grid {
+        grid-template-columns: repeat(2,1fr)
+    }
+}
+
+@media(max-width:600px) {
+    .header-inner {
+        flex-direction: column;
+        align-items: stretch
+    }
+
+    .search-form {
+        flex-direction: column
+    }
+
+    .hero-yellow {
+        padding: 28px 12px
+    }
+
+    .hero-cats {
+        gap: 12px
+    }
+
+    .main-categories ul {
+        gap: 10px
+    }
+
+    .footer-grid {
+        grid-template-columns: 1fr
+    }
+}

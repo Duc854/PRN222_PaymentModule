@@ -1,49 +1,364 @@
-﻿<!DOCTYPE html>
+﻿@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    Layout = null;
+
+    var currentPath = Context.Request.Path.Value?.ToLower() ?? "";
+    bool hideHeaderFooter = currentPath.Contains("/account/login") || currentPath.Contains("/account/register");
+}
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PaymentModule.Web</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <title>@ViewData["Title"] - eBay Clone</title>
+
+    <!-- CSS -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/PaymentModule.Web.styles.css" asp-append-version="true" />
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+          crossorigin="anonymous" />
+
+    <!-- Google Font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+
+    <style>
+        /* === Badge hiển thị số lượng === */
+        .cart-count-badge {
+            position: absolute;
+            top: -6px;
+            right: -8px;
+            background: #e60023;
+            color: #fff;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            display: none;
+        }
+
+        .icon-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-left: 12px;
+            cursor: pointer;
+        }
+
+        /* === Popup cart === */
+        .popup-box {
+            display: none;
+            position: absolute;
+            top: 30px;
+            right: 0;
+            background: #fff;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            border-radius: 10px;
+            padding: 10px;
+            width: 260px;
+            z-index: 99;
+        }
+
+            .popup-box.show {
+                display: block;
+            }
+
+        .cart-item img {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            object-fit: cover;
+            margin-right: 10px;
+        }
+
+        .cart-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .cart-info p {
+            margin: 0;
+            font-size: 13px;
+        }
+
+        .cart-summary {
+            text-align: right;
+        }
+
+            .cart-summary a {
+                margin-left: 5px;
+            }
+
+        .empty-cart {
+            text-align: center;
+            color: #555;
+            padding: 10px;
+        }
+    </style>
 </head>
+
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">PaymentModule.Web</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
+    @if (!hideHeaderFooter)
+    {
+        <!-- ======= HEADER ======= -->
+        <header class="ebay-header">
+            <!-- Top bar -->
+            <div class="header-top">
+                <div class="header-top-left">
+                    <span>
+                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+                        {
+                            var userName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+                            ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                            ?? User.Identity.Name
+                            ?? "User";
+                            <text>Hi, @userName! </text>
+                            <a asp-controller="Account" asp-action="Logout">(Logout)</a>
+                        }
+                        else
+                        {
+                            <text>Hi! </text>
+                            <a asp-controller="Account" asp-action="Login">Sign in</a>
+                            <text> or </text>
+                            <a asp-controller="Account" asp-action="Register">register</a>
+                        }
+                    </span>
+
+                    <div class="top-links">
+                        <a href="#">Daily Deals</a>
+                        <a href="#">Brand Outlet</a>
+                        <a href="#">Gift Cards</a>
+                        <a href="#">Help & Contact</a>
+                    </div>
+                </div>
+
+                <div class="header-top-right">
+                    <a href="#">Sell</a>
+                    <a href="#">Watchlist ▾</a>
+                    <a href="#">My eBay ▾</a>
+
+                    <!-- 🔔 Notification -->
+                    <div class="icon-wrapper" id="notifWrap">
+                        <i class="fa-regular fa-bell"></i>
+                        <div class="popup-box" id="notifPopup">
+                            <p>
+                                Please
+                                <a asp-controller="Account" asp-action="Login">sign in</a>
+                                to view notifications.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 🛒 Cart -->
+                    <div class="icon-wrapper" id="cartWrap">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        <span id="cart-count" class="cart-count-badge">0</span>
+                        <div class="popup-box cart-popup" id="cartPopup">
+                            <div id="cart-content">
+                                <p class="text-center text-muted">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - PaymentModule.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
-    </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)
+            <!-- Main header -->
+            <div class="header-main">
+                <div class="header-logo">
+                    <a asp-controller="Home" asp-action="Index">
+                        <img src="~/images/ebay-logo.png" alt="eBay" style="cursor:pointer;" />
+                    </a>
+                </div>
+                <button class="category-btn">Shop by category ▾</button>
+
+                <div class="search-wrap">
+                    <form class="search-bar" method="get" action="/Home/Search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" placeholder="Search for anything" />
+                        <select>
+                            <option>All Categories</option>
+                            <option>Electronics</option>
+                            <option>Fashion</option>
+                            <option>Home & Garden</option>
+                        </select>
+                        <button type="submit" class="search-btn">Search</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Bottom nav -->
+            <nav class="header-nav">
+                <ul>
+                    <li>eBay Live</li>
+                    <li>Saved</li>
+                    <li>Motors</li>
+                    <li>Electronics</li>
+                    <li>Collectibles</li>
+                    <li>Home & Garden</li>
+                    <li>Clothing, Shoes & Accessories</li>
+                    <li>Toys</li>
+                    <li>Sporting Goods</li>
+                    <li>Business & Industrial</li>
+                    <li class="dropdown">
+                        More <i class="fa-solid fa-chevron-down"></i>
+                        <ul class="dropdown-menu">
+                            <li>Business & Industrial</li>
+                            <li>Jewelry & Watches</li>
+                            <li>Refurbished</li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+    }
+
+    <!-- ======= MAIN BODY ======= -->
+    <main role="main" class="main-body">
+        @RenderBody()
+    </main>
+
+    @if (!hideHeaderFooter)
+    {
+        <!-- ======= FOOTER ======= -->
+        <footer class="ebay-footer">
+            <div class="footer-grid">
+                <div>
+                    <h4>Buy</h4>
+                    <a href="#">Registration</a>
+                    <a href="#">Bidding & buying help</a>
+                    <a href="#">Stores</a>
+                    <a href="#">Creator Collections</a>
+                    <a href="#">Charity Shop</a>
+                </div>
+                <div>
+                    <h4>Sell</h4>
+                    <a href="#">Start selling</a>
+                    <a href="#">How to sell</a>
+                    <a href="#">Business sellers</a>
+                    <a href="#">Affiliates</a>
+                </div>
+                <div>
+                    <h4>About eBay</h4>
+                    <a href="#">Company info</a>
+                    <a href="#">News</a>
+                    <a href="#">Investors</a>
+                    <a href="#">Careers</a>
+                    <a href="#">Advertise with us</a>
+                </div>
+                <div>
+                    <h4>Help & Contact</h4>
+                    <a href="#">Seller Center</a>
+                    <a href="#">Contact Us</a>
+                    <a href="#">eBay Returns</a>
+                    <a href="#">Money Back Guarantee</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>Copyright © 1995-2025 eBay Inc. All Rights Reserved.</p>
+            </div>
+        </footer>
+    }
+
+    <!-- ======= JS: Cart popup + badge ======= -->
+    <script>
+        async function updateCartCount() {
+            const badge = document.getElementById("cart-count");
+            try {
+                const res = await fetch("/cart/GetCart", { credentials: "include" });
+                const data = await res.json();
+
+                // ✅ Nếu không có data hoặc bị lỗi, ẩn badge
+                if (!data || !data.success || data.empty || !Array.isArray(data.items)) {
+                    badge.style.display = "none";
+                    return;
+                }
+
+                const totalItems = data.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                badge.textContent = totalItems;
+                badge.style.display = totalItems > 0 ? "inline-block" : "none";
+            } catch (err) {
+                console.error("updateCartCount error:", err);
+                badge.style.display = "none";
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            updateCartCount();
+
+            const cartWrap = document.getElementById('cartWrap');
+            const cartPopup = document.getElementById('cartPopup');
+            const cartContent = document.getElementById('cart-content');
+
+            cartWrap.addEventListener('mouseenter', async () => {
+                cartPopup.classList.add('show');
+                cartContent.innerHTML = "<p class='text-center text-muted'>Loading...</p>";
+
+                try {
+                    const res = await fetch('/cart/GetCart', { credentials: 'include' });
+                    if (!res.ok) throw new Error("Network error");
+
+                    const data = await res.json();
+
+                    // ✅ Kiểm tra dữ liệu trả về có hợp lệ không
+                    if (!data || !data.success) {
+                        cartContent.innerHTML = `
+                            <div class="empty-cart">
+                                <p class="text-danger">Error loading cart.</p>
+                            </div>`;
+                        return;
+                    }
+
+                    // ✅ Nếu giỏ hàng rỗng
+                    if (data.empty || !Array.isArray(data.items) || data.items.length === 0) {
+                        cartContent.innerHTML = `
+                            <div class="empty-cart">
+                                <h4>Your cart is empty</h4>
+                                <p>Time to start shopping!</p>
+                            </div>`;
+                        return;
+                    }
+
+                    // ✅ Render danh sách sản phẩm
+                    let html = "<div class='cart-items'>";
+                    data.items.forEach(item => {
+                        const img = item.images || "/images/default-product.png";
+                        const title = item.title || "Unnamed";
+                        const qty = item.quantity || 1;
+                        const price = parseFloat(item.price) || 0;
+
+                        html += `
+                            <div class="cart-item">
+                                <img src="${img}" alt="${title}" />
+                                <div class="cart-info">
+                                    <p>${title}</p>
+                                    <p>Qty: ${qty} × $${price.toFixed(2)}</p>
+                                </div>
+                            </div>`;
+                    });
+                    html += `</div>
+                             <hr>
+                             <div class="cart-summary">
+                                <p><strong>Total:</strong> $${(parseFloat(data.total) || 0).toFixed(2)}</p>
+                                <a href="/cart/view" class="btn btn-sm btn-primary">View cart</a>
+                                <a href="/cart/checkout" class="btn btn-sm btn-success">Checkout</a>
+                             </div>`;
+
+                    cartContent.innerHTML = html;
+                } catch (err) {
+                    console.error("Cart popup load failed:", err);
+                    cartContent.innerHTML = `
+                        <div class="empty-cart">
+                            <p class="text-danger">Error loading cart.</p>
+                        </div>`;
+                }
+            });
+
+            cartWrap.addEventListener('mouseleave', () => cartPopup.classList.remove('show'));
+        });
+    </script>
+
 </body>
 </html>

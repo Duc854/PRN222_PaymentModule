@@ -1,0 +1,46 @@
+﻿@{
+    ViewData["Title"] = "Payment Failed";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<section class="payment-failed">
+    <div class="failed-container">
+        <img src="https://cdn-icons-png.flaticon.com/512/1828/1828843.png" alt="Failed" class="failed-icon" />
+        <h2>Thanh toán thất bại!</h2>
+        <p>Đã có lỗi trong quá trình xử lý giao dịch.</p>
+        <a href="/cart/checkout" class="btn btn-primary">Thử lại</a>
+    </div>
+</section>
+
+<style>
+    .payment-failed {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 70vh;
+    }
+
+    .failed-container {
+        text-align: center;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 40px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .failed-icon {
+        width: 80px;
+        margin-bottom: 20px;
+    }
+
+    .btn-primary {
+        background: #0064d2;
+        color: #fff;
+        border: none;
+        border-radius: 30px;
+        padding: 12px 24px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+</style>

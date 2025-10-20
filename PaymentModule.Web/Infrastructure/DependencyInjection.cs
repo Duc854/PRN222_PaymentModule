@@ -22,6 +22,14 @@ namespace PaymentModule.Web.Infrastructure
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IOrderTableRepository, OrderTableRepository>();
             services.AddScoped<IOrderItemRepository, OrderItemRepository>();
+            services.AddScoped<IOrderTableService, OrderTableService>();
+            services.AddScoped<IProductRepository, ProductRepository>();
+            services.AddScoped<IProductService, ProductService>();
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IAddressService, AddressService>();
+            services.AddScoped<IOrderTableService, OrderTableService>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
+
             return services;
         }
     }

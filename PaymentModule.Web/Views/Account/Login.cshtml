@@ -1,0 +1,54 @@
+﻿@model PaymentModule.Business.Dtos.InputDtos.LoginInputDto
+@{
+    ViewData["Title"] = "Login";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<section class="login-page">
+    <div class="login-logo">
+        <img src="~/images/ebay-logo.png" alt="eBay" />
+    </div>
+
+    <div class="login-container">
+        <h1>Sign in to your account</h1>
+
+        <div class="create-box">
+            <span>New to eBay?</span>
+            <a asp-controller="Account" asp-action="Register" class="btn-create-small">Create account</a>
+        </div>
+
+        @if (ViewBag.Error != null)
+        {
+            <div class="alert alert-danger text-center">@ViewBag.Error</div>
+        }
+
+        <form asp-action="Login" asp-controller="Account" method="post" class="login-form">
+            <input asp-for="Email" type="text" placeholder="Email" class="form-control mb-3" required />
+            <input asp-for="Password" type="password" placeholder="Password" class="form-control mb-3" required />
+            <button type="submit" class="btn-login w-100">Continue</button>
+        </form>
+
+        <div class="divider"><span>or</span></div>
+
+        <div class="social-buttons">
+            <button type="button" class="btn-google"><i class="fa-brands fa-google"></i> Continue with Google</button>
+            <button type="button" class="btn-facebook"><i class="fa-brands fa-facebook"></i> Continue with Facebook</button>
+            <button type="button" class="btn-apple"><i class="fa-brands fa-apple"></i> Continue with Apple</button>
+        </div>
+
+        <div class="stay-signed mt-3">
+            <input type="checkbox" id="stay" checked />
+            <label for="stay">Stay signed in</label>
+            <i class="fa-solid fa-circle-info"></i>
+        </div>
+
+        <footer class="login-footer">
+            <p>
+                Copyright © 1995-2025 eBay Inc. All Rights Reserved.
+                <a href="#">User Agreement</a> ·
+                <a href="#">Privacy</a> ·
+                <a href="#">Cookies</a>
+            </p>
+        </footer>
+    </div>
+</section>

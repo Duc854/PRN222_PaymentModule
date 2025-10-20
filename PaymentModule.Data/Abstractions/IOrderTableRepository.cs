@@ -11,5 +11,7 @@ namespace PaymentModule.Data.Abstractions
     {
         Task<OrderTable?> GetOrderTableByBuyerId(int id);
         Task<OrderTable?> GetUnpaidOrderTableByBuyerId(int id);
+        Task CreateOrderTableAsync(OrderTable order);
+        Task UpdateOrderTableAsync(OrderTable order);
     }
 }

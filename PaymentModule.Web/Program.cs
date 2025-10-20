@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
-using PaymentModule.Data.Entities;
+﻿using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using PaymentModule.Web.Infrastructure;
+using System.IO;
 
 namespace PaymentModule.Web
 {
@@ -11,30 +11,44 @@ namespace PaymentModule.Web
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
+            // 1️⃣ Add MVC
             builder.Services.AddControllersWithViews();
 
-            // Add DI
+            // 2️⃣ Add infrastructure (DbContext, Repository, Service)
             builder.Services.AddInfrastructure(builder.Configuration);
 
-            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie(options =>
+            // 3️⃣ Add Session
+            builder.Services.AddSession(options =>
             {
-                options.LoginPath = "/User/Login";
-                options.AccessDeniedPath = "/Shared/AccessDenied";
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                options.SlidingExpiration = true;
-                options.ExpireTimeSpan = TimeSpan.FromHours(2);
+                options.Cookie.IsEssential = true;
             });
+
+            // 4️⃣ Fix Data Protection Key (để không lỗi payload invalid)
+            builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "DataProtectionKeys")))
+                .SetApplicationName("PaymentModuleWeb");
+
+            // 5️⃣ Cookie Authentication
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/Account/Login"; // ✅ đúng controller
+                    options.AccessDeniedPath = "/Shared/AccessDenied";
+                    options.Cookie.HttpOnly = true;
+                    options.Cookie.SameSite = SameSiteMode.Lax;
+                    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                    options.SlidingExpiration = true;
+                    options.ExpireTimeSpan = TimeSpan.FromHours(2);
+                });
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
+            // 6️⃣ Error handling
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Home/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
 
@@ -43,9 +57,12 @@ namespace PaymentModule.Web
 
             app.UseRouting();
 
+            // 7️⃣ Middlewares
+            app.UseSession();
             app.UseAuthentication();
             app.UseAuthorization();
 
+            // 8️⃣ Default route
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}");

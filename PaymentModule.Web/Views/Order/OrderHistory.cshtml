@@ -1,0 +1,80 @@
+﻿@{
+    ViewData["Title"] = "Purchase History";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<section class="order-history">
+    <h2>Purchase History</h2>
+
+    <div class="order-list">
+        <div class="order-card">
+            <div class="order-info">
+                <p><strong>Order #12345</strong></p>
+                <p>Ngày đặt: 21/10/2025</p>
+                <p>Trạng thái: <span class="status shipped">Đang vận chuyển</span></p>
+            </div>
+            <div class="order-actions">
+                <a href="/order/OrderTracking" class="btn btn-outline">Theo dõi đơn hàng</a>
+            </div>
+        </div>
+
+        <div class="order-card">
+            <div class="order-info">
+                <p><strong>Order #12344</strong></p>
+                <p>Ngày đặt: 18/10/2025</p>
+                <p>Trạng thái: <span class="status delivered">Đã giao</span></p>
+            </div>
+            <div class="order-actions">
+                <a href="/order/OrderTracking" class="btn btn-outline">Xem chi tiết</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .order-history {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+
+    .order-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .order-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #ddd;
+        padding: 16px 20px;
+        border-radius: 10px;
+        background: #fff;
+    }
+
+    .status.shipped {
+        color: #0064d2;
+        font-weight: 600;
+    }
+
+    .status.delivered {
+        color: #00a650;
+        font-weight: 600;
+    }
+
+    .btn-outline {
+        border: 1px solid #0064d2;
+        color: #0064d2;
+        border-radius: 30px;
+        padding: 6px 14px;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+        .btn-outline:hover {
+            background: #0064d2;
+            color: #fff;
+        }
+</style>

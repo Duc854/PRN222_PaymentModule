@@ -1,10 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PaymentModule.Data.Abstractions;
 using PaymentModule.Data.Entities;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace PaymentModule.Data.Repositories
@@ -16,9 +14,18 @@ namespace PaymentModule.Data.Repositories
         {
             _dbContext = dbContext;
         }
+
         public async Task<Product?> GetProductInfoById(int id)
         {
             return await _dbContext.Products.FirstOrDefaultAsync(p => p.Id == id);
+        }
+
+        public async Task<List<Product>> GetAllProductsAsync()
+        {
+            return await _dbContext.Products
+                .Where(p => p.Price != null)
+                .OrderByDescending(p => p.Id)
+                .ToListAsync();
         }
     }
 }

@@ -24,5 +24,17 @@ namespace PaymentModule.Data.Repositories
         {
             return await _dbContext.OrderTables.FirstOrDefaultAsync(ot => ot.BuyerId == id && ot.Status == "Unpaid");
         }
+        public async Task CreateOrderTableAsync(OrderTable order)
+        {
+            await _dbContext.OrderTables.AddAsync(order);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task UpdateOrderTableAsync(OrderTable order)
+        {
+            _dbContext.OrderTables.Update(order);
+            await _dbContext.SaveChangesAsync();
+        }
+
     }
 }
