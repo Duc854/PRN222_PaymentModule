@@ -10,7 +10,7 @@ namespace PaymentModule.Business.Abstractions
         Task<bool> AddToCartAsync(AddToCartInputDto input); // ✅ thêm dòng này
         Task<bool> UpdateCartItemAsync(UpdateCartItemDto input);
         Task<bool> DeleteCartItemAsync(UpdateCartItemDto input);
-        Task CompleteOrderAsync(int userId);
+        Task CompleteOrderAsync(int userId, string method = "COD");
 
     }
 }

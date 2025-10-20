@@ -145,29 +145,36 @@ namespace PaymentModule.Business.Services
 
             return true;
         }
-        public async Task CompleteOrderAsync(int userId)
+        public async Task CompleteOrderAsync(int userId, string method = "COD")
         {
             var order = await _orderTableRepo.GetUnpaidOrderTableByBuyerId(userId);
             if (order == null) return;
 
             order.Status = "Paid";
             order.OrderDate = DateTime.Now;
-
             await _orderTableRepo.UpdateOrderTableAsync(order);
 
-            var payment = new PaymentModule.Data.Entities.Payment
+            // ✅ Chỉ thêm payment nếu là COD (tránh trùng với PayPal)
+            if (method == "COD")
             {
-                UserId = userId,
-                OrderId = order.Id,
-                Amount = order.TotalPrice ?? 0,
-                Method = "CreditCard",
-                PaidAt = DateTime.Now,
-                Status = "Completed"
-            };
+                var payment = new PaymentModule.Data.Entities.Payment
+                {
+                    UserId = userId,
+                    OrderId = order.Id,
+                    Amount = order.TotalPrice ?? 0,
+                    Method = "COD",
+                    PaidAt = DateTime.Now,
+                    Status = "Completed"
+                };
 
-            await _paymentRepo.CreatePaymentAsync(payment);
+                await _paymentRepo.CreatePaymentAsync(payment);
+            }
         }
 
+        public Task CompleteOrderAsync(int userId)
+        {
+            throw new NotImplementedException();
+        }
     }
 
 }

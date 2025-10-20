@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using PaymentModule.Business.Services;
 using PaymentModule.Web.Infrastructure;
 using System.IO;
 
@@ -10,6 +11,16 @@ namespace PaymentModule.Web
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+            // Đọc PayPal section
+            var paypalSettings = builder.Configuration.GetSection("PayPal");
+
+            string clientId = paypalSettings["ClientId"];
+            string clientSecret = paypalSettings["ClientSecret"];
+            string mode = paypalSettings["Mode"];
+            string returnUrl = paypalSettings["ReturnUrl"];
+            string cancelUrl = paypalSettings["CancelUrl"];
+            builder.Services.AddScoped<PayPalService>();
 
             // 1️⃣ Add MVC
             builder.Services.AddControllersWithViews();
@@ -69,5 +80,6 @@ namespace PaymentModule.Web
 
             app.Run();
         }
+
     }
 }

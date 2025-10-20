@@ -90,7 +90,8 @@ namespace PaymentModule.Web.Controllers
             if (userId != null)
             {
                 // ✅ 1. Chuyển đơn hàng "Unpaid" → "Paid" trong DB
-                await orderTableService.CompleteOrderAsync(userId.Value);
+                await orderTableService.CompleteOrderAsync(userId.Value, "COD");
+
 
                 // ✅ 2. Xóa session giỏ hàng để Checkout không hiện nữa
                 HttpContext.Session.Remove("UserCart");

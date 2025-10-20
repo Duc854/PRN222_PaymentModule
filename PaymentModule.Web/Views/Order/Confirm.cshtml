@@ -56,7 +56,15 @@
 
         <div class="confirm-actions">
             <button class="btn-back" onclick="window.location.href='/cart/checkout'">← Quay lại</button>
-            <button class="btn-confirm" onclick="window.location.href='/order/PaymentSuccess'">Xác nhận đặt hàng</button>
+            <button class="btn-confirm" id="btnPayNow">Xác nhận & Thanh toán qua PayPal</button>
+
+            <script>
+                document.getElementById("btnPayNow").addEventListener("click", function () {
+                    const total = "@ViewBag.Total";
+                    window.location.href = `/Payment/Create?amount=${total}`;
+                });
+            </script>
+
         </div>
     </div>
 </section>
