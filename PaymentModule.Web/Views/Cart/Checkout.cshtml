@@ -127,10 +127,16 @@
         let couponUsed = false;
         if (hasAddress) confirmBtn.disabled = false;
 
+        // ✅ Hiện popup
         btnAdd?.addEventListener("click", () => modal.classList.add("show"));
+
+        // ✅ Ẩn popup khi bấm nút cancel
         closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
+
+        // ✅ Ẩn popup khi click ra ngoài vùng box
         window.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); });
 
+        // ✅ Xử lý form thêm địa chỉ
         form.addEventListener("submit", e => {
             e.preventDefault();
             const data = new FormData(form);
@@ -193,6 +199,7 @@
             confirmBtn.textContent = `Confirm and pay $${(subtotal + shipping - discount).toFixed(2)}`;
         });
 
+        // ✅ Gửi dữ liệu checkout
         confirmBtn.addEventListener("click", () => {
             if (!hasAddress) {
                 alert("⚠️ Bạn cần thêm địa chỉ giao hàng trước khi thanh toán!");
@@ -200,7 +207,7 @@
             }
             const subtotal = parseFloat(subtotalEl.textContent);
             const shipping = 5;
-            const discount = parseFloat(discountEl.textContent.replace(/[^0-9.-]+/g,"")) || 0;
+            const discount = parseFloat(discountEl.textContent.replace(/[^0-9.-]+/g, "")) || 0;
             const total = parseFloat(totalEl.textContent);
             const coupon = couponSelect.value;
             const addr = document.querySelector("#addressDisplay");
@@ -211,17 +218,37 @@
             const country = lines[3].innerText;
             const phone = lines[4].innerText;
 
+            // ✅ Lấy phương thức thanh toán
+            const paymentOption = document.querySelector('input[name="payment"]:checked');
+            let paymentMethod = "COD"; // mặc định
+            if (paymentOption) {
+                const label = paymentOption.closest(".payment-option");
+                const methodName = label ? label.querySelector("span").innerText.trim() : "";
+                if (methodName.toLowerCase().includes("paypal")) {
+                    paymentMethod = "PayPal";
+                } else if (methodName.toLowerCase().includes("cod")) {
+                    paymentMethod = "COD";
+                }
+            }
+
+            // ✅ Gửi JSON về server
             fetch("/order/ConfirmFromCheckout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    subtotal, shipping, discount, total, coupon,
+                    subtotal,
+                    shipping,
+                    discount,
+                    total,
+                    coupon,
+                    paymentMethod,
                     address: { fullName, street, cityLine, country, phone }
                 })
             }).then(() => window.location.href = "/order/confirm");
-        });
+        }); // ✅ ← đóng ngoặc bị thiếu
     });
 </script>
+
 
 <style>
     .checkout-container {

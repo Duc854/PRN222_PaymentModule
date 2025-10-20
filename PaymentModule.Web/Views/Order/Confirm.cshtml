@@ -9,6 +9,7 @@
     <div class="confirm-container">
         <h2>Xác nhận đơn hàng</h2>
 
+        <!-- Địa chỉ giao hàng -->
         <div class="confirm-box">
             <h4>Địa chỉ giao hàng</h4>
             @if (addr != null)
@@ -21,11 +22,11 @@
             }
             else
             {
-
                 <p>⚠️ Chưa có địa chỉ giao hàng</p>
             }
         </div>
 
+        <!-- Danh sách sản phẩm -->
         <div class="confirm-box">
             <h4>Sản phẩm</h4>
             @foreach (var item in Model.Items)
@@ -41,12 +42,13 @@
             }
         </div>
 
+        <!-- Tóm tắt đơn hàng -->
         <div class="confirm-box summary">
             <h4>Tóm tắt đơn hàng</h4>
             <p>Tiền hàng: $@ViewBag.Subtotal</p>
             <p>Phí vận chuyển: $@ViewBag.Shipping</p>
             <p>Giảm giá: -$@ViewBag.Discount</p>
-            @if (ViewBag.Coupon != null)
+            @if (!string.IsNullOrEmpty(ViewBag.Coupon))
             {
                 <p>Mã giảm giá đã dùng: <strong>@ViewBag.Coupon</strong></p>
             }
@@ -54,17 +56,35 @@
             <p class="total">Tổng thanh toán: <strong>$@ViewBag.Total</strong></p>
         </div>
 
+        <!-- Phương thức thanh toán -->
+        <div class="confirm-box">
+            <h4>Phương thức thanh toán</h4>
+            <p><strong>@ViewBag.PaymentMethod</strong></p>
+        </div>
+
+        <!-- Nút hành động -->
         <div class="confirm-actions">
             <button class="btn-back" onclick="window.location.href='/cart/checkout'">← Quay lại</button>
-            <button class="btn-confirm" id="btnPayNow">Xác nhận & Thanh toán qua PayPal</button>
 
-            <script>
-                document.getElementById("btnPayNow").addEventListener("click", function () {
-                    const total = "@ViewBag.Total";
-                    window.location.href = `/Payment/Create?amount=${total}`;
-                });
-            </script>
-
+            @if (ViewBag.PaymentMethod == "PayPal")
+            {
+                <button class="btn-confirm" id="btnPayNow">Xác nhận & Thanh toán qua PayPal</button>
+                <script>
+                    document.getElementById("btnPayNow").addEventListener("click", function () {
+                        const total = "@ViewBag.Total";
+                        window.location.href = `/Payment/Create?amount=${total}`;
+                    });
+                </script>
+            }
+            else
+            {
+                <button class="btn-confirm" id="btnCod">Xác nhận đơn hàng (COD)</button>
+                <script>
+                    document.getElementById("btnCod").addEventListener("click", function () {
+                        window.location.href = "/order/PaymentSuccess";
+                    });
+                </script>
+            }
         </div>
     </div>
 </section>

@@ -30,6 +30,9 @@ namespace PaymentModule.Web.Controllers
             if (data.TryGetProperty("coupon", out var couponProp))
                 HttpContext.Session.SetString("Coupon", couponProp.GetString() ?? "");
 
+            if (data.TryGetProperty("paymentMethod", out var paymentProp))
+                HttpContext.Session.SetString("PaymentMethod", paymentProp.GetString() ?? "COD");
+
             if (data.TryGetProperty("address", out var addrProp))
             {
                 HttpContext.Session.SetString("FullName", addrProp.GetProperty("fullName").GetString() ?? "");
@@ -39,10 +42,10 @@ namespace PaymentModule.Web.Controllers
                 HttpContext.Session.SetString("Phone", addrProp.GetProperty("phone").GetString() ?? "");
             }
 
+
             return Ok();
         }
 
-        // ✅ Trang xác nhận đơn hàng
         [HttpGet("confirm")]
         public IActionResult Confirm()
         {
@@ -79,8 +82,12 @@ namespace PaymentModule.Web.Controllers
             ViewBag.Coupon = HttpContext.Session.GetString("Coupon");
             ViewBag.Address = address;
 
+            // ✅ Thêm dòng này
+            ViewBag.PaymentMethod = HttpContext.Session.GetString("PaymentMethod") ?? "COD";
+
             return View(cart);
         }
+
 
         [HttpGet("PaymentSuccess")]
         public async Task<IActionResult> PaymentSuccess([FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService)
