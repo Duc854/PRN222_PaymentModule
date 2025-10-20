@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using System.IO;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Services;
 using PaymentModule.Web.Infrastructure;
-using System.IO;
 
 namespace PaymentModule.Web
 {
@@ -53,6 +54,9 @@ namespace PaymentModule.Web
                     options.SlidingExpiration = true;
                     options.ExpireTimeSpan = TimeSpan.FromHours(2);
                 });
+
+            //đăng kí service gửi mail
+            builder.Services.AddScoped<IEmailService, EmailService>();
 
             var app = builder.Build();
 

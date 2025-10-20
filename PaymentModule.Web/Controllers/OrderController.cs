@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
+using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Dtos.OutputDtos;
+using PaymentModule.Business.Services;
 using PaymentModule.Data;
-using System.Text.Json;
 
 namespace PaymentModule.Web.Controllers
 {
@@ -9,10 +11,12 @@ namespace PaymentModule.Web.Controllers
     public class OrderController : Controller
     {
         private readonly CloneEbayDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public OrderController(CloneEbayDbContext context)
+        public OrderController(CloneEbayDbContext context, IEmailService emailService)
         {
             _context = context;
+            _emailService = emailService;
         }
 
         // ✅ Nhận dữ liệu từ Checkout và lưu vào Session
@@ -94,10 +98,32 @@ namespace PaymentModule.Web.Controllers
         {
             var userId = HttpContext.Session.GetInt32("UserId");
 
+            //Lấy email từ DB
+            var user = await _context.Users.FindAsync(userId);
+
             if (userId != null)
             {
                 // ✅ 1. Chuyển đơn hàng "Unpaid" → "Paid" trong DB
                 await orderTableService.CompleteOrderAsync(userId.Value, "COD");
+
+                //Nam thêm:
+                var total = HttpContext.Session.GetString("Total") ?? "0";
+                var fullName = HttpContext.Session.GetString("FullName") ?? "Khách hàng";
+                var email = user?.Email; 
+
+                // 3️⃣ Gửi mail xác nhận
+                string subject = $"[CloneEbay] Thanh toán thành công – Mã đơn hàng #{DateTime.Now:yyyyMMddHHmmss}";
+                string body = $@"
+                                    <h2>Cảm ơn {fullName} đã đặt hàng!</h2>
+                                    <p>Đơn hàng của bạn đã được thanh toán thành công.</p>
+                                    <p><b>Tổng tiền:</b> {total} VND</p>
+                                    <p>Phương thức thanh toán: ???</p>
+                                    <p>Chúng tôi sẽ liên hệ sớm để giao hàng.</p>
+                                    <hr/>
+                                    <p>CloneEbay Team</p>
+                                ";
+
+                await _emailService.SendEmailAsync(email, subject, body);
 
 
                 // ✅ 2. Xóa session giỏ hàng để Checkout không hiện nữa
