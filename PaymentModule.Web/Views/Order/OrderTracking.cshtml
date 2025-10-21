@@ -1,57 +1,99 @@
-﻿@{
+﻿@model PaymentModule.Data.Entities.OrderTable
+@using PaymentModule.Data.Entities // Để dùng ShippingStatusConstants
+@{
     ViewData["Title"] = "Order Tracking";
     Layout = "~/Views/Shared/_Layout.cshtml";
+
+    // Lấy thông tin vận đơn ra cho dễ dùng
+    var shippingInfo = Model.ShippingInfos.OrderByDescending(s => s.Id).FirstOrDefault();
+
+    @if (shippingInfo == null)
+    {
+        <p>Không tìm thấy thông tin vận đơn.</p>
+        return; 
+    }
+
+    // Logic quyết định timeline
+    bool confirmed = true; // Luôn luôn
+    bool processing = shippingInfo.Status == ShippingStatusConstants.Processing || 
+                      shippingInfo.Status == ShippingStatusConstants.InTransit || 
+                      shippingInfo.Status == ShippingStatusConstants.Delivered;
+                      
+    bool inTransit = shippingInfo.Status == ShippingStatusConstants.InTransit || 
+                     shippingInfo.Status == ShippingStatusConstants.Delivered;
+                     
+    bool delivered = shippingInfo.Status == ShippingStatusConstants.Delivered;
+
+    bool failed = shippingInfo.Status == ShippingStatusConstants.Failed;
 }
 
 <section class="order-tracking-page">
     <div class="tracking-container">
         <h2 class="page-title">Theo dõi đơn hàng</h2>
 
-        <!-- Order Info -->
         <div class="tracking-header">
-            <p>Mã đơn hàng: <strong>#12345</strong></p>
-            <p>Mã vận đơn: <strong>VNEXPRESS1234567</strong></p>
-            <p>Đơn vị vận chuyển: <strong>Giao Hàng Nhanh</strong></p>
+            <p>Mã đơn hàng: <strong>#@Model.Id</strong></p>
+            <p>Mã vận đơn: <strong>@shippingInfo.TrackingNumber</strong></p>
+            <p>Đơn vị vận chuyển: <strong>@shippingInfo.Carrier</strong></p>
         </div>
 
-        <!-- Tracking Timeline -->
-        <div class="tracking-timeline">
-            <div class="step completed">
-                <div class="circle"></div>
-                <div class="content">
-                    <h4>Đơn hàng đã được xác nhận</h4>
-                    <p>20/10/2025 - 09:00</p>
+        @if (failed)
+        {
+            <div class="tracking-timeline">
+                <div class="step failed active"> <div class="circle"></div>
+                    <div class="content">
+                        <h4>Giao hàng thất bại</h4>
+                        <p>Đã xảy ra lỗi trong quá trình vận chuyển. Vui lòng liên hệ hỗ trợ.</p>
+                    </div>
                 </div>
             </div>
+        }
+        else
+        {
+            <div class="tracking-timeline">
+                <div class="step @(confirmed ? "completed" : "")">
+                    <div class="circle"></div>
+                    <div class="content">
+                        <h4>Đơn hàng đã được xác nhận</h4>
+                        <p>@Model.OrderDate.Value.ToLocalTime().ToString("dd/MM/yyyy - HH:mm")</p>
+                    </div>
+                </div>
 
-            <div class="step completed">
-                <div class="circle"></div>
-                <div class="content">
-                    <h4>Đơn hàng đã được đóng gói</h4>
-                    <p>20/10/2025 - 12:30</p>
+                <div class="step @(processing ? "completed" : "") @(shippingInfo.Status == ShippingStatusConstants.Processing ? "active" : "")">
+                    <div class="circle"></div>
+                    <div class="content">
+                        <h4>Đang xử lý & đóng gói</h4>
+                        <p>@(!processing ? "Chưa cập nhật" : "Đang chuẩn bị hàng cho vận chuyển...")</p>
+                    </div>
+                </div>
+
+                <div class="step @(inTransit ? "completed" : "") @(shippingInfo.Status == ShippingStatusConstants.InTransit ? "active" : "")">
+                    <div class="circle"></div>
+                    <div class="content">
+                        <h4>Đơn hàng đang được vận chuyển</h4>
+                        <p>@(!inTransit ? "Chưa cập nhật" : $"Dự kiến giao: {shippingInfo.EstimatedArrival?.ToLocalTime().ToString("dd/MM/yyyy")}")</p>
+                    </div>
+                </div>
+
+                <div class="step @(delivered ? "completed active" : "")">
+                    <div class="circle"></div>
+                    <div class="content">
+                        <h4>Đã giao hàng thành công</h4>
+                        <p>@(!delivered ? "Chưa cập nhật" : "Giao hàng thành công!")</p>
+                    </div>
                 </div>
             </div>
+        }
 
-            <div class="step active">
-                <div class="circle"></div>
-                <div class="content">
-                    <h4>Đơn hàng đang được vận chuyển</h4>
-                    <p>21/10/2025 - 08:00</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="circle"></div>
-                <div class="content">
-                    <h4>Đã giao hàng thành công</h4>
-                    <p>Chưa cập nhật</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Action -->
         <div class="tracking-action">
-            <a href="/order/OrderHistory" class="btn-back">← Quay lại lịch sử đơn hàng</a>
+            @if (!delivered && !failed)
+            {
+                <form asp-controller="Order" asp-action="SyncShippingStatus" asp-route-id="@Model.Id" method="post" style="display: inline-block; margin-right: 15px;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn-sync">Làm mới trạng thái</button>
+                </form>
+            }
+            <a href="/order/OrderHistory" class="btn-back">← Quay lại lịch sử</a>
         </div>
     </div>
 </section>
@@ -152,4 +194,38 @@
         .btn-back:hover {
             background: #0654ba;
         }
+
+    .step.failed .circle {
+        background: #d90000; /* Màu đỏ cho failed */
+    }
+    .step.failed.active .content h4 {
+        color: #d90000;
+    }
+    
+    .btn-back {
+        background: #0064d2;
+        color: #fff;
+        padding: 12px 24px;
+        border-radius: 30px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block; /* Thêm */
+    }
+
+    .btn-sync {
+        background: #00a650; /* Màu xanh lá */
+        color: #fff;
+        padding: 12px 24px;
+        border-radius: 30px;
+        text-decoration: none;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        font-family: inherit; /* Thêm */
+        font-size: inherit; /* Thêm */
+    }
+
+    .btn-sync:hover {
+        background: #008c43;
+    }
 </style>

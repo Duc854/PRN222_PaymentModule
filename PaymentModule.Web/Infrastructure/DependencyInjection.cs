@@ -34,6 +34,7 @@ namespace PaymentModule.Web.Infrastructure
             services.AddScoped<IOrderTableService, OrderTableService>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IShippingInfoRepository, ShippingInfoRepository>();
+            services.AddScoped<IAddressRepository, AddressRepository>();
 
             return services;
         }

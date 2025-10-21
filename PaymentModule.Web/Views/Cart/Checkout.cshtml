@@ -34,9 +34,10 @@
                     {
                         var addr = ViewBag.AddressList[0];
                         <div class="ship-address" id="addressDisplay">
+                            <input type="hidden" id="shippingAddressId" value="@addr.Id" />
                             <p><strong>@addr.FullName</strong></p>
                             <p>@addr.Street</p>
-                            <p>@addr.City, @addr.State @addr.PostalCode</p>
+                            <p>@addr.City, @addr.State</p>
                             <p>@addr.Country</p>
                             <p>@addr.Phone</p>
                             <button type="button" class="btn-edit-address" id="btnChangeAddress">Change</button>
@@ -103,7 +104,6 @@
             <label>Street Address</label><input type="text" name="street" required />
             <label>City</label><input type="text" name="city" required />
             <label>State</label><input type="text" name="state" required />
-            <label>Postal Code</label><input type="text" name="postalCode" required />
             <label>Country</label><input type="text" name="country" required />
             <label>Phone</label><input type="text" name="phone" required />
             <div class="modal-actions">
@@ -144,7 +144,6 @@
             const street = data.get("street");
             const city = data.get("city");
             const state = data.get("state");
-            const postalCode = data.get("postalCode");
             const country = data.get("country");
             const phone = data.get("phone");
 
@@ -152,7 +151,7 @@
                 <div class="ship-address" id="addressDisplay">
                     <p><strong>${fullName}</strong></p>
                     <p>${street}</p>
-                    <p>${city}, ${state} ${postalCode}</p>
+                    <p>${city}, ${state}</p>
                     <p>${country}</p>
                     <p>${phone}</p>
                 </div>`;
@@ -210,9 +209,11 @@
             const discount = parseFloat(discountEl.textContent.replace(/[^0-9.-]+/g, "")) || 0;
             const total = parseFloat(totalEl.textContent);
             const coupon = couponSelect.value;
-            const addr = document.querySelector("#addressDisplay");
-            const fullName = addr.querySelector("strong").innerText;
-            const lines = addr.querySelectorAll("p");
+            const addrEl = document.querySelector("#addressDisplay");
+            const hiddenInput = document.getElementById("shippingAddressId"); // Chọn trực tiếp
+            let addressId = hiddenInput ? parseInt(hiddenInput.value) : 0;
+            const fullName = addrEl.querySelector("strong").innerText;
+            const lines = addrEl.querySelectorAll("p");
             const street = lines[1].innerText;
             const cityLine = lines[2].innerText;
             const country = lines[3].innerText;
@@ -242,6 +243,7 @@
                     total,
                     coupon,
                     paymentMethod,
+                    addressId: addressId,
                     address: { fullName, street, cityLine, country, phone }
                 })
             }).then(() => window.location.href = "/order/confirm");
