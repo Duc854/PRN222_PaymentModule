@@ -1,6 +1,7 @@
-﻿using PaymentModule.Business.Dtos.InputDtos;
+﻿using System.Threading.Tasks;
+using PaymentModule.Business.Dtos.InputDtos;
 using PaymentModule.Business.Dtos.OutputDtos;
-using System.Threading.Tasks;
+using PaymentModule.Data.Entities;
 
 namespace PaymentModule.Business.Abstractions
 {
@@ -10,7 +11,10 @@ namespace PaymentModule.Business.Abstractions
         Task<bool> AddToCartAsync(AddToCartInputDto input); // ✅ thêm dòng này
         Task<bool> UpdateCartItemAsync(UpdateCartItemDto input);
         Task<bool> DeleteCartItemAsync(UpdateCartItemDto input);
-        Task CompleteOrderAsync(int userId, string method = "COD");
-
+        Task<OrderTable> CompleteOrderAsync(int userId, int addressId, string method = "COD");
+        Task CreateShipmentForOrderAsync(int orderId);
+        Task<List<OrderTable>> GetOrderHistoryAsync(int buyerId);
+        Task<OrderTable> GetOrderDetailsAsync(int orderId);
+        Task<bool> SyncShipmentStatusAsync(int orderId);
     }
 }
