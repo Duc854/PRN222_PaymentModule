@@ -5,6 +5,7 @@ using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Dtos.OutputDtos;
 using PaymentModule.Business.Services;
 using PaymentModule.Data;
+using PaymentModule.Data.Entities;
 
 namespace PaymentModule.Web.Controllers
 {
@@ -98,62 +99,106 @@ namespace PaymentModule.Web.Controllers
             return View(cart);
         }
 
-
         [HttpGet("PaymentSuccess")]
         public async Task<IActionResult> PaymentSuccess(
-            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService,
-            [FromServices] ILogger<OrderController> logger) // <-- Thêm Logger
+            [FromServices] IOrderTableService orderTableService,
+            [FromServices] ILogger<OrderController> logger,
+            int? orderId) // Chấp nhận OrderId từ PayPal
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             var addressId = HttpContext.Session.GetInt32("AddressId");
             var user = await _context.Users.FindAsync(userId);
 
-            if (userId != null && addressId != null && addressId.Value > 0)
+            if (userId == null || user == null)
             {
-                // ✅ 1. Chuyển đơn hàng "Unpaid" → "Paid"
-                var completedOrder = await orderTableService.CompleteOrderAsync(userId.Value, addressId.Value, "COD");
+                logger.LogWarning("PaymentSuccess được tải nhưng không có UserId trong Session.");
+                return RedirectToAction("Index", "Home"); // Lỗi, về trang chủ
+            }
 
-                if (completedOrder == null)
+            OrderTable completedOrder;
+            string paymentMethodForEmail;
+
+            // Kiểm tra "dấu" chúng ta đã đặt ở Bước 1
+            string paymentProcessed = HttpContext.Session.GetString("PaymentProcessed");
+
+            if (paymentProcessed == "true")
+            {
+                // === LUỒNG 1: PAYPAL ===
+                // Đơn hàng đã được xử lý. Chỉ cần lấy thông tin để gửi mail.
+                if (orderId == null)
                 {
-                    logger.LogWarning("Không tìm thấy đơn hàng Unpaid để hoàn tất cho User {UserId}", userId);
+                    logger.LogError("Lỗi luồng PayPal: Đã xử lý nhưng không có OrderId.");
                     return RedirectToAction("Index", "Home");
                 }
 
-                // ✅ 2. GỌI API VẬN CHUYỂN 
+                completedOrder = await orderTableService.GetOrderDetailsAsync(orderId.Value);
+                paymentMethodForEmail = "PayPal";
+
+                // Xóa dấu
+                HttpContext.Session.Remove("PaymentProcessed");
+            }
+            else
+            {
+                // === LUỒNG 2: COD ===
+                // Đơn hàng chưa được xử lý. Phải làm tất cả công việc ngay bây giờ.
+                if (addressId == null || addressId.Value == 0)
+                {
+                    logger.LogError("Lỗi luồng COD: Không tìm thấy AddressId trong Session.");
+                    return RedirectToAction("Checkout", "Cart"); // Quay lại checkout
+                }
+
+                // 1. Hoàn tất đơn hàng
+                completedOrder = await orderTableService.CompleteOrderAsync(userId.Value, addressId.Value, "COD");
+                if (completedOrder == null)
+                {
+                    logger.LogWarning("Lỗi luồng COD: Không tìm thấy đơn 'Unpaid' cho User {UserId}", userId);
+                    return RedirectToAction("Index", "Home"); // Về trang chủ
+                }
+
+                // 2. Tạo vận đơn
                 try
                 {
                     await orderTableService.CreateShipmentForOrderAsync(completedOrder.Id);
                 }
                 catch (Exception ex)
                 {
-                    // Ghi log lỗi nhưng không chặn người dùng
-                    logger.LogError(ex, "Lỗi khi gọi API vận chuyển cho Order {OrderId} (COD)", completedOrder.Id);
-                    // Dù API vận chuyển lỗi, đơn hàng vẫn thành công, email vẫn gửi
+                    logger.LogError(ex, "Lỗi tạo vận đơn cho đơn COD {OrderId}", completedOrder.Id);
+                    // Không chặn người dùng, chỉ ghi log
                 }
-
-                // ✅ 3. Gửi mail xác nhận
-                var total = HttpContext.Session.GetString("Total") ?? "0";
-                var fullName = HttpContext.Session.GetString("FullName") ?? "Khách hàng";
-                var email = user?.Email;
-
-                // Sửa lại Subject để dùng Order ID thật
-                string subject = $"[CloneEbay] Thanh toán thành công – Mã đơn hàng #{completedOrder.Id}";
-                string body = $@"
-                            <h2>Cảm ơn {fullName} đã đặt hàng!</h2>
-                            <p>Đơn hàng của bạn (mã #{completedOrder.Id}) đã được xác nhận.</p>
-                            <p><b>Tổng tiền:</b> ${total}</p>
-                            <p>Phương thức thanh toán: Thanh toán khi nhận hàng (COD)</p>
-                            <p>Chúng tôi sẽ liên hệ sớm để giao hàng.</p>
-                            <hr/>
-                            <p>CloneEbay Team</p>
-                        ";
-
-                await _emailService.SendEmailAsync(email, subject, body);
-
-                // ✅ 4. Xóa session giỏ hàng
-                HttpContext.Session.Remove("UserCart");
+                paymentMethodForEmail = "Thanh toán khi nhận hàng (COD)";
             }
 
+            // === LOGIC CHUNG (Gửi Mail & Dọn dẹp Session) ===
+
+            // Lấy thông tin từ Session (do cả 2 luồng đều cần)
+            var total = HttpContext.Session.GetString("Total") ?? "0";
+            var fullName = HttpContext.Session.GetString("FullName") ?? user.Username;
+            var email = user.Email;
+
+            string subject = $"[CloneEbay] Xác nhận đơn hàng – Mã #{completedOrder.Id}";
+            string body = $@"
+                                <h2>Cảm ơn {fullName} đã đặt hàng!</h2>
+                                <p>Đơn hàng của bạn (mã #{completedOrder.Id}) đã được xác nhận.</p>
+                                <p><b>Tổng tiền:</b> {total} ₫</p> 
+                                <p>Phương thức thanh toán: {paymentMethodForEmail}</p>
+                                <p>Chúng tôi sẽ liên hệ sớm để giao hàng.</p>
+                                <hr/>
+                                <p>CloneEbay Team</p>
+                            ";
+
+            await _emailService.SendEmailAsync(email, subject, body);
+
+            // Dọn dẹp tất cả Session
+            HttpContext.Session.Remove("UserCart");
+            HttpContext.Session.Remove("AddressId");
+            HttpContext.Session.Remove("Total");
+            HttpContext.Session.Remove("Subtotal");
+            HttpContext.Session.Remove("Discount");
+            HttpContext.Session.Remove("Coupon");
+            HttpContext.Session.Remove("FullName"); // Xóa hết...
+
+            // Trả về View "Cảm ơn", truyền OrderId sang
+            ViewBag.OrderId = completedOrder.Id;
             return View();
         }
 

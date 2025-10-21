@@ -35,6 +35,14 @@ namespace PaymentModule.Web
                 options.IdleTimeout = TimeSpan.FromMinutes(30);
                 options.Cookie.HttpOnly = true;
                 options.Cookie.IsEssential = true;
+                options.Cookie.SameSite = SameSiteMode.None;
+            });
+
+            builder.Services.Configure<CookiePolicyOptions>(options =>
+            {
+                options.MinimumSameSitePolicy = SameSiteMode.None;
+                // Khi SameSite=None, bắt buộc phải dùng Secure (HTTPS)
+                options.Secure = CookieSecurePolicy.Always;
             });
 
             // 4️⃣ Fix Data Protection Key (để không lỗi payload invalid)
@@ -71,6 +79,8 @@ namespace PaymentModule.Web
             app.UseStaticFiles();
 
             app.UseRouting();
+
+            app.UseCookiePolicy();
 
             // 7️⃣ Middlewares
             app.UseSession();
