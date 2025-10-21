@@ -1,9 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using PaymentModule.Business.Abstraction;
 using PaymentModule.Business.Abstractions;
+using PaymentModule.Business.Exception;
 using PaymentModule.Business.Services;
 using PaymentModule.Data;
 using PaymentModule.Data.Abstractions;
 using PaymentModule.Data.Repositories;
+using Polly;
 
 namespace PaymentModule.Web.Infrastructure
 {
@@ -18,6 +21,7 @@ namespace PaymentModule.Web.Infrastructure
             //Add Services
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IOrderTableService, OrderTableService>();
+            services.AddScoped<IShippingService, MockShippingService>();
             //Add Repositories
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IOrderTableRepository, OrderTableRepository>();
@@ -29,6 +33,7 @@ namespace PaymentModule.Web.Infrastructure
             services.AddScoped<IAddressService, AddressService>();
             services.AddScoped<IOrderTableService, OrderTableService>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IShippingInfoRepository, ShippingInfoRepository>();
 
             return services;
         }
