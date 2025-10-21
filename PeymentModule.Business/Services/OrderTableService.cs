@@ -144,6 +144,7 @@ namespace PaymentModule.Business.Services
 
             return new UserCartOutputDto
             {
+                OrderTableId = order.Id,
                 TotalPrice = order.TotalPrice.GetValueOrDefault(),
                 Items = itemDtos
             };
@@ -188,13 +189,14 @@ namespace PaymentModule.Business.Services
             var address = await _addressRepo.GetByIdAsync(addressId);
             if (address == null) return null;
 
-            decimal subtotal = order.TotalPrice ?? 0;
-            decimal shippingFee = _shippingFeeService.CalculateShippingFee(address.City);
+            var items = await _orderItemRepo.GetOrderItemsByOrderId(order.Id);
+            decimal subtotal = items.Sum(i => (i.UnitPrice ?? 0) * (i.Quantity ?? 0));
+
+            decimal shippingFee = await _shippingFeeService.CalculateShippingFeeAsync(order.Id, addressId);
 
             order.Status = "Processing";
             order.OrderDate = DateTime.Now;
             order.AddressId = addressId;
-            order.ShippingFee = shippingFee;
             order.TotalPrice = subtotal + shippingFee;
             await _orderTableRepo.UpdateOrderTableAsync(order);
 

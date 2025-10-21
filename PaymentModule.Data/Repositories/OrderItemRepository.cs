@@ -1,9 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
-using PaymentModule.Data.Abstractions;
-using PaymentModule.Data.Entities;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using PaymentModule.Data.Abstractions;
+using PaymentModule.Data.Entities;
 
 namespace PaymentModule.Data.Repositories
 {
@@ -20,6 +20,7 @@ namespace PaymentModule.Data.Repositories
         {
             return await _dbContext.OrderItems
                 .Include(i => i.Product)
+                    .ThenInclude(p => p.Seller)
                 .Where(i => i.OrderId == orderId)
                 .ToListAsync();
         }
