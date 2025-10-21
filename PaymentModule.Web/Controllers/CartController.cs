@@ -1,12 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using PaymentModule.Business.Abstractions;
-using PaymentModule.Business.Dtos.InputDtos;
-using PaymentModule.Business.Dtos.OutputDtos;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System.Linq;
-using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
+using PaymentModule.Business.Abstraction;
+using PaymentModule.Business.Abstractions;
+using PaymentModule.Business.Dtos.InputDtos;
+using PaymentModule.Business.Dtos.OutputDtos;
 
 namespace PaymentModule.Web.Controllers
 {
@@ -16,15 +17,25 @@ namespace PaymentModule.Web.Controllers
         private readonly IOrderTableService _orderTableService;
         private readonly IUserService _userService;
         private readonly IAddressService _addressService;
+        private readonly IShippingFeeService _shippingFeeService;
 
         public CartController(
             IOrderTableService orderTableService,
             IUserService userService,
-            IAddressService addressService)
+            IAddressService addressService,
+            IShippingFeeService shippingFeeService)
         {
             _orderTableService = orderTableService;
             _userService = userService;
             _addressService = addressService;
+            _shippingFeeService = shippingFeeService;
+        }
+
+        [HttpGet("api/calculate-shipping")]
+        public IActionResult CalculateShipping(string city)
+        {
+            var fee = _shippingFeeService.CalculateShippingFee(city);
+            return Ok(new { fee = fee });
         }
 
         // =======================

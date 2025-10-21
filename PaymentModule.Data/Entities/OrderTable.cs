@@ -20,6 +20,7 @@ public partial class OrderTable
     public virtual Address? Address { get; set; }
 
     public virtual User? Buyer { get; set; }
+    public decimal? ShippingFee { get; set; }
 
     public virtual ICollection<Dispute> Disputes { get; set; } = new List<Dispute>();
 
