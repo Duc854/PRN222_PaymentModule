@@ -25,6 +25,7 @@ namespace PaymentModule.Business.Services
         private readonly IUserRepository _userRepo;
         private readonly IShippingService _shippingService;
         private readonly IShippingInfoRepository _shippingInfoRepo;
+        private readonly IShippingFeeService _shippingFeeService;
         private readonly ILogger<OrderTableService> _logger;
         private readonly AsyncRetryPolicy _shippingRetryPolicy;
 
@@ -36,6 +37,7 @@ namespace PaymentModule.Business.Services
             IUserRepository userRepo,
             IShippingService shippingService,
             IShippingInfoRepository shippingInfoRepo,
+            IShippingFeeService shippingFeeService,
             ILogger<OrderTableService> logger
             )
         {
@@ -43,6 +45,7 @@ namespace PaymentModule.Business.Services
             _orderItemRepo = orderItemRepo;
             _paymentRepo = paymentRepo;
             _addressRepo = addressRepo;
+            _shippingFeeService = shippingFeeService;
             _userRepo = userRepo;
             _shippingService = shippingService;
             _shippingInfoRepo = shippingInfoRepo;
@@ -182,9 +185,17 @@ namespace PaymentModule.Business.Services
             var order = await _orderTableRepo.GetUnpaidOrderTableByBuyerId(userId);
             if (order == null) return null;
 
+            var address = await _addressRepo.GetByIdAsync(addressId);
+            if (address == null) return null;
+
+            decimal subtotal = order.TotalPrice ?? 0;
+            decimal shippingFee = _shippingFeeService.CalculateShippingFee(address.City);
+
             order.Status = "Processing";
             order.OrderDate = DateTime.Now;
             order.AddressId = addressId;
+            order.ShippingFee = shippingFee;
+            order.TotalPrice = subtotal + shippingFee;
             await _orderTableRepo.UpdateOrderTableAsync(order);
 
             if (method == "COD")

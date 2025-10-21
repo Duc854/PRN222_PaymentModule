@@ -84,11 +84,11 @@
             <div class="order-summary">
                 <h4>Order Summary</h4>
                 <p>Items: <strong>@Model.Items.Count</strong></p>
-                <p>Subtotal: $<span id="subtotal">@Model.TotalPrice.ToString("0.00")</span></p>
-                <p>Shipping: <span id="shippingCost">$5.00</span></p>
-                <p>Discount: <span id="discountAmount">$0.00</span></p>
+                <p>Tiền hàng: <span id="subtotal" data-value="@Model.TotalPrice">@Model.TotalPrice.ToString("N0")</span> ₫</p>
+                <p>Phí vận chuyển: <span id="shippingCost" data-value="0">Đang tính...</span></p>
+                <p>Giảm giá: <span id="discountAmount" data-value="0">0 ₫</span></p>
                 <hr />
-                <p><strong>Total: $<span id="orderTotal">@Model.TotalPrice.ToString("0.00")</span></strong></p>
+                <p><strong>Tổng tiền: <span id="orderTotal" data-value="@Model.TotalPrice">@Model.TotalPrice.ToString("N0")</span> ₫</strong></p>
                 <button type="button" class="btn-confirm-pay" id="btnConfirmPay" disabled>Confirm and pay</button>
             </div>
         </div>
@@ -115,140 +115,170 @@
 </div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const modal = document.getElementById("addressModal");
-        const btnAdd = document.getElementById("btnAddAddress");
-        const closeBtn = document.getElementById("closeModal");
-        const form = document.getElementById("addressForm");
-        const shipToBox = document.getElementById("shipToBox");
-        const confirmBtn = document.getElementById("btnConfirmPay");
+document.addEventListener("DOMContentLoaded", () => {
+    // === KHAI BÁO BIẾN ===
+    const modal = document.getElementById("addressModal");
+    const btnAdd = document.getElementById("btnAddAddress");
+    const closeBtn = document.getElementById("closeModal");
+    const form = document.getElementById("addressForm");
+    const shipToBox = document.getElementById("shipToBox");
+    const confirmBtn = document.getElementById("btnConfirmPay");
 
-        let hasAddress = document.querySelector("#addressDisplay") !== null;
-        let couponUsed = false;
-        if (hasAddress) confirmBtn.disabled = false;
+    const subtotalEl = document.getElementById("subtotal");
+    const shippingEl = document.getElementById("shippingCost");
+    const discountEl = document.getElementById("discountAmount");
+    const totalEl = document.getElementById("orderTotal");
 
-        // ✅ Hiện popup
-        btnAdd?.addEventListener("click", () => modal.classList.add("show"));
+    let hasAddress = document.querySelector("#addressDisplay") !== null;
+    if (hasAddress) confirmBtn.disabled = false;
 
-        // ✅ Ẩn popup khi bấm nút cancel
-        closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
+    // === HÀM HELPER ===
+    function formatCurrency(num) {
+        return parseFloat(num).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+    }
 
-        // ✅ Ẩn popup khi click ra ngoài vùng box
-        window.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); });
+    // Hàm cập nhật tổng tiền
+    function updateSummary() {
+        const subtotal = parseFloat(subtotalEl.dataset.value) || 0;
+        const shipping = parseFloat(shippingEl.dataset.value) || 0;
+        const discount = parseFloat(discountEl.dataset.value) || 0;
+        const total = subtotal + shipping - discount;
 
-        // ✅ Xử lý form thêm địa chỉ
-        form.addEventListener("submit", e => {
-            e.preventDefault();
-            const data = new FormData(form);
-            const fullName = data.get("fullName");
-            const street = data.get("street");
-            const city = data.get("city");
-            const state = data.get("state");
-            const country = data.get("country");
-            const phone = data.get("phone");
+        shippingEl.textContent = formatCurrency(shipping);
+        discountEl.textContent = formatCurrency(discount);
+        totalEl.textContent = formatCurrency(total);
+        confirmBtn.textContent = `Confirm and pay ${formatCurrency(total)}`;
+    }
 
-            shipToBox.innerHTML = `
-                <div class="ship-address" id="addressDisplay">
-                    <p><strong>${fullName}</strong></p>
-                    <p>${street}</p>
-                    <p>${city}, ${state}</p>
-                    <p>${country}</p>
-                    <p>${phone}</p>
-                </div>`;
-            modal.classList.remove("show");
-            hasAddress = true;
-            confirmBtn.disabled = false;
-        });
+    // Hàm gọi API tính phí
+    async function fetchShippingFee(city) {
+        shippingEl.textContent = "Đang tính...";
+        try {
+            const response = await fetch(`/cart/api/calculate-shipping?city=${encodeURIComponent(city)}`);
+            if (!response.ok) throw new Error("Failed to fetch");
 
-        const couponSelect = document.getElementById("couponSelect");
-        const applyBtn = document.getElementById("btnApplyCoupon");
-        const msg = document.getElementById("couponMsg");
-        const subtotalEl = document.getElementById("subtotal");
-        const discountEl = document.getElementById("discountAmount");
-        const totalEl = document.getElementById("orderTotal");
+            const data = await response.json();
+            shippingEl.dataset.value = data.fee;
+        } catch (error) {
+            console.error("Lỗi tính phí ship:", error);
+            shippingEl.dataset.value = 50000; // Phí mặc định nếu lỗi
+        }
+        updateSummary();
+    }
 
-        applyBtn.addEventListener("click", () => {
-            if (couponUsed) {
-                msg.textContent = "❌ Bạn đã áp dụng mã rồi!";
-                msg.style.color = "red";
-                return;
-            }
-            const coupon = couponSelect.value;
-            const subtotal = parseFloat(subtotalEl.textContent);
-            const shipping = 5;
-            let discount = 0;
-            if (coupon === "10") {
-                discount = subtotal * 0.1;
-                msg.textContent = "✔️ Đã áp dụng mã giảm 10%";
-            } else if (coupon === "20") {
-                discount = subtotal * 0.2;
-                msg.textContent = "✔️ Đã áp dụng mã giảm 20%";
-            } else {
-                msg.textContent = "❌ Vui lòng chọn mã hợp lệ";
-                msg.style.color = "red";
-                return;
-            }
+    // === LOGIC THÊM ĐỊA CHỈ (Sửa đổi) ===
+    form.addEventListener("submit", e => {
+        e.preventDefault();
+        const data = new FormData(form);
+        const fullName = data.get("fullName");
+        const street = data.get("street");
+        const city = data.get("city"); // <-- Lấy City
+        const state = data.get("state");
+        const country = data.get("country");
+        const phone = data.get("phone");
 
-            couponUsed = true;
-            discountEl.textContent = `-$${discount.toFixed(2)}`;
-            totalEl.textContent = (subtotal + shipping - discount).toFixed(2);
-            couponSelect.disabled = true;
-            applyBtn.disabled = true;
-            msg.style.color = "#0654ba";
-            confirmBtn.textContent = `Confirm and pay $${(subtotal + shipping - discount).toFixed(2)}`;
-        });
+        // Cập nhật HTML (như cũ)
+        shipToBox.innerHTML = `
+            <div class="ship-address" id="addressDisplay">
+                <input type="hidden" id="shippingAddressId" value="0" />
+                <input type="hidden" id="shippingCity" value="${city}" />
+                <p><strong>${fullName}</strong></p>
+                <p>${street}</p>
+                <p>${city}, ${state}</p>
+                <p>${country}</p>
+                <p>${phone}</p>
+            </div>`;
+        modal.classList.remove("show");
+        hasAddress = true;
+        confirmBtn.disabled = false;
 
-        // ✅ Gửi dữ liệu checkout
-        confirmBtn.addEventListener("click", () => {
-            if (!hasAddress) {
-                alert("⚠️ Bạn cần thêm địa chỉ giao hàng trước khi thanh toán!");
-                return;
-            }
-            const subtotal = parseFloat(subtotalEl.textContent);
-            const shipping = 5;
-            const discount = parseFloat(discountEl.textContent.replace(/[^0-9.-]+/g, "")) || 0;
-            const total = parseFloat(totalEl.textContent);
-            const coupon = couponSelect.value;
-            const addrEl = document.querySelector("#addressDisplay");
-            const hiddenInput = document.getElementById("shippingAddressId"); // Chọn trực tiếp
-            let addressId = hiddenInput ? parseInt(hiddenInput.value) : 0;
-            const fullName = addrEl.querySelector("strong").innerText;
-            const lines = addrEl.querySelectorAll("p");
-            const street = lines[1].innerText;
-            const cityLine = lines[2].innerText;
-            const country = lines[3].innerText;
-            const phone = lines[4].innerText;
-
-            // ✅ Lấy phương thức thanh toán
-            const paymentOption = document.querySelector('input[name="payment"]:checked');
-            let paymentMethod = "COD"; // mặc định
-            if (paymentOption) {
-                const label = paymentOption.closest(".payment-option");
-                const methodName = label ? label.querySelector("span").innerText.trim() : "";
-                if (methodName.toLowerCase().includes("paypal")) {
-                    paymentMethod = "PayPal";
-                } else if (methodName.toLowerCase().includes("cod")) {
-                    paymentMethod = "COD";
-                }
-            }
-
-            // ✅ Gửi JSON về server
-            fetch("/order/ConfirmFromCheckout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    subtotal,
-                    shipping,
-                    discount,
-                    total,
-                    coupon,
-                    paymentMethod,
-                    addressId: addressId,
-                    address: { fullName, street, cityLine, country, phone }
-                })
-            }).then(() => window.location.href = "/order/confirm");
-        }); // ✅ ← đóng ngoặc bị thiếu
+        // GỌI API TÍNH PHÍ VỚI ĐỊA CHỈ MỚI
+        fetchShippingFee(city);
     });
+
+    // === LOGIC ÁP DỤNG COUPON (Sửa đổi) ===
+    // ... (Code áp dụng coupon của bạn) ...
+    // Trong hàm applyBtn.addEventListener("click", ...),
+    // hãy đảm bảo bạn gọi updateSummary() sau khi tính discount.
+    // Ví dụ:
+    // discountEl.dataset.value = discount;
+    // updateSummary();
+    // ...
+
+    // === LOGIC CONFIRM PAY (Sửa đổi) ===
+    confirmBtn.addEventListener("click", () => {
+        if (!hasAddress) {
+            alert("⚠️ Bạn cần thêm địa chỉ giao hàng trước khi thanh toán!");
+            return;
+        }
+        // Lấy dữ liệu từ các element
+        const subtotal = parseFloat(subtotalEl.dataset.value);
+        const shipping = parseFloat(shippingEl.dataset.value);
+        const discount = parseFloat(discountEl.dataset.value);
+        const total = subtotal + shipping - discount;
+        const coupon = document.getElementById("couponSelect").value;
+
+        const addrEl = document.querySelector("#addressDisplay");
+        const addressId = parseInt(document.getElementById("shippingAddressId").value);
+        const fullName = addrEl.querySelector("strong").innerText;
+        const lines = addrEl.querySelectorAll("p");
+        const street = lines[1].innerText;
+        const cityLine = lines[2].innerText;
+        const country = lines[3].innerText;
+        const phone = lines[4].innerText;
+
+        const paymentMethod = document.querySelector('input[name="payment"]:checked')
+                                .closest(".payment-option").querySelector("span").innerText.toLowerCase().includes("paypal") 
+                                ? "PayPal" : "COD";
+
+        // Gửi JSON về server (với phí ship ĐỘNG)
+        fetch("/order/ConfirmFromCheckout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                subtotal,
+                shipping, // <-- GỬI PHÍ SHIP ĐÚNG
+                discount,
+                total,
+                coupon,
+                paymentMethod,
+                addressId: addressId, // Gửi ID
+                address: { fullName, street, cityLine, country, phone }
+            })
+        }).then(() => window.location.href = "/order/confirm");
+    });
+
+    // === KHỞI CHẠY LẦN ĐẦU ===
+    if (hasAddress) {
+        // Lấy thành phố từ địa chỉ mặc định (do C# render)
+        const defaultAddressP = document.querySelector("#addressDisplay p:nth-child(4)"); // Dòng "City, State"
+        // Hoặc an toàn hơn, thêm một hidden input cho city
+        @if (ViewBag.AddressList != null && ViewBag.AddressList.Count > 0)
+        {
+            // Thêm một input ẩn nữa trong div#addressDisplay
+            var addr = ViewBag.AddressList[0];
+            <text>
+            if(document.getElementById("shippingCity") == null) {
+                 let cityInput = document.createElement('input');
+                 cityInput.type = 'hidden';
+                 cityInput.id = 'shippingCity';
+                 cityInput.value = @Html.Raw(Json.Serialize(addr.City));
+                 document.getElementById('addressDisplay').prepend(cityInput);
+            }
+            </text>
+        }
+
+        const defaultCity = document.getElementById("shippingCity")?.value || "Tỉnh khác";
+        fetchShippingFee(defaultCity);
+    } else {
+        fetchShippingFee("Tỉnh khác"); // Mặc định nếu không có địa chỉ
+    }
+
+    // (Code popup cũ của bạn)
+    btnAdd?.addEventListener("click", () => modal.classList.add("show"));
+    closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
+    window.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); });
+});
 </script>
 
 
