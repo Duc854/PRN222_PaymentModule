@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Dtos.OutputDtos;
@@ -30,6 +31,11 @@ namespace PaymentModule.Web.Controllers
             HttpContext.Session.SetString("Shipping", data.GetProperty("shipping").GetDecimal().ToString());
             HttpContext.Session.SetString("Discount", data.GetProperty("discount").GetDecimal().ToString());
             HttpContext.Session.SetString("Total", data.GetProperty("total").GetDecimal().ToString());
+
+            if (data.TryGetProperty("addressId", out var idProp) && idProp.GetInt32() > 0)
+            {
+                HttpContext.Session.SetInt32("AddressId", idProp.GetInt32());
+            }
 
             if (data.TryGetProperty("coupon", out var couponProp))
                 HttpContext.Session.SetString("Coupon", couponProp.GetString() ?? "");
@@ -94,59 +100,103 @@ namespace PaymentModule.Web.Controllers
 
 
         [HttpGet("PaymentSuccess")]
-        public async Task<IActionResult> PaymentSuccess([FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService)
+        public async Task<IActionResult> PaymentSuccess(
+            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService,
+            [FromServices] ILogger<OrderController> logger) // <-- Thêm Logger
         {
             var userId = HttpContext.Session.GetInt32("UserId");
-
-            //Lấy email từ DB
+            var addressId = HttpContext.Session.GetInt32("AddressId");
             var user = await _context.Users.FindAsync(userId);
 
-            if (userId != null)
+            if (userId != null && addressId != null && addressId.Value > 0)
             {
-                // ✅ 1. Chuyển đơn hàng "Unpaid" → "Paid" trong DB
-                await orderTableService.CompleteOrderAsync(userId.Value, "COD");
+                // ✅ 1. Chuyển đơn hàng "Unpaid" → "Paid"
+                var completedOrder = await orderTableService.CompleteOrderAsync(userId.Value, addressId.Value, "COD");
 
-                //Nam thêm:
+                if (completedOrder == null)
+                {
+                    logger.LogWarning("Không tìm thấy đơn hàng Unpaid để hoàn tất cho User {UserId}", userId);
+                    return RedirectToAction("Index", "Home");
+                }
+
+                // ✅ 2. GỌI API VẬN CHUYỂN 
+                try
+                {
+                    await orderTableService.CreateShipmentForOrderAsync(completedOrder.Id);
+                }
+                catch (Exception ex)
+                {
+                    // Ghi log lỗi nhưng không chặn người dùng
+                    logger.LogError(ex, "Lỗi khi gọi API vận chuyển cho Order {OrderId} (COD)", completedOrder.Id);
+                    // Dù API vận chuyển lỗi, đơn hàng vẫn thành công, email vẫn gửi
+                }
+
+                // ✅ 3. Gửi mail xác nhận
                 var total = HttpContext.Session.GetString("Total") ?? "0";
                 var fullName = HttpContext.Session.GetString("FullName") ?? "Khách hàng";
-                var email = user?.Email; 
+                var email = user?.Email;
 
-                // 3️⃣ Gửi mail xác nhận
-                string subject = $"[CloneEbay] Thanh toán thành công – Mã đơn hàng #{DateTime.Now:yyyyMMddHHmmss}";
+                // Sửa lại Subject để dùng Order ID thật
+                string subject = $"[CloneEbay] Thanh toán thành công – Mã đơn hàng #{completedOrder.Id}";
                 string body = $@"
-                                    <h2>Cảm ơn {fullName} đã đặt hàng!</h2>
-                                    <p>Đơn hàng của bạn đã được thanh toán thành công.</p>
-                                    <p><b>Tổng tiền:</b> {total} VND</p>
-                                    <p>Phương thức thanh toán: ???</p>
-                                    <p>Chúng tôi sẽ liên hệ sớm để giao hàng.</p>
-                                    <hr/>
-                                    <p>CloneEbay Team</p>
-                                ";
+                            <h2>Cảm ơn {fullName} đã đặt hàng!</h2>
+                            <p>Đơn hàng của bạn (mã #{completedOrder.Id}) đã được xác nhận.</p>
+                            <p><b>Tổng tiền:</b> ${total}</p>
+                            <p>Phương thức thanh toán: Thanh toán khi nhận hàng (COD)</p>
+                            <p>Chúng tôi sẽ liên hệ sớm để giao hàng.</p>
+                            <hr/>
+                            <p>CloneEbay Team</p>
+                        ";
 
                 await _emailService.SendEmailAsync(email, subject, body);
 
-
-                // ✅ 2. Xóa session giỏ hàng để Checkout không hiện nữa
+                // ✅ 4. Xóa session giỏ hàng
                 HttpContext.Session.Remove("UserCart");
             }
 
             return View();
         }
 
-
-        // ✅ Trang lịch sử đơn hàng
         [HttpGet("OrderHistory")]
-        public IActionResult OrderHistory()
+        public async Task<IActionResult> OrderHistory(
+            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService) // Inject
         {
-            // sau này có thể lấy danh sách order từ DB, giờ chỉ load view
-            return View();
+            // Lấy userId của người đang đăng nhập
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim))
+                return RedirectToAction("Login", "User");
+
+            int userId = int.Parse(userIdClaim);
+
+            // Gọi service để lấy lịch sử
+            var orders = await orderTableService.GetOrderHistoryAsync(userId);
+
+            return View(orders); // Truyền danh sách order vào View
         }
 
-        // ✅ Trang theo dõi đơn hàng
-        [HttpGet("OrderTracking")]
-        public IActionResult OrderTracking()
+        [HttpGet("OrderTracking/{id}")]
+        public async Task<IActionResult> OrderTracking(int id,
+            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService)
         {
-            return View();
+            var order = await orderTableService.GetOrderDetailsAsync(id);
+
+            if (order == null || order.ShippingInfos == null)
+            {
+                ViewBag.ErrorMessage = "Không tìm thấy thông tin vận chuyển cho đơn hàng này.";
+                return View("OrderTrackingError");
+            }
+
+            return View(order);
+        }
+
+        [HttpPost("SyncStatus/{id}")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SyncShippingStatus(int id,
+            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService)
+        {
+            await orderTableService.SyncShipmentStatusAsync(id);
+
+            return RedirectToAction("OrderTracking", new { id = id });
         }
     }
 }

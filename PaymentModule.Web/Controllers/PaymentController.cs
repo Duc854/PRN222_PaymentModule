@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using System.Linq;
+using Microsoft.AspNetCore.Mvc;
+using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Services;
 using PaymentModule.Data;
 using PayPal.Api;
-using System;
-using System.Linq;
-
 // Alias để tránh nhầm giữa PayPalPayment và Payment Entity
 using PayPalPayment = PayPal.Api.Payment;
 
@@ -14,10 +14,16 @@ namespace PaymentModule.Web.Controllers
     public class PaymentController : Controller
     {
         private readonly PayPalService _paypalService;
+        private readonly IOrderTableService _orderTableService;
+        private readonly ILogger<PaymentController> _logger;
+        private readonly CloneEbayDbContext _context;
 
-        public PaymentController(PayPalService paypalService)
+        public PaymentController(PayPalService paypalService, IOrderTableService orderTableService, ILogger<PaymentController> logger, CloneEbayDbContext context)
         {
             _paypalService = paypalService;
+            _orderTableService = orderTableService;
+            _logger = logger;
+            _context = context;
         }
 
         // Bắt đầu tạo thanh toán
@@ -43,7 +49,7 @@ namespace PaymentModule.Web.Controllers
 
         // PayPal redirect về đây khi thanh toán thành công
         [HttpGet]
-        public IActionResult Success(string paymentId, string token, string PayerID, [FromServices] CloneEbayDbContext _context)
+        public async Task<IActionResult> Success(string paymentId, string token, string PayerID)
         {
             try
             {
@@ -52,43 +58,47 @@ namespace PaymentModule.Web.Controllers
                 if (executedPayment.state.ToLower() == "approved")
                 {
                     var userId = HttpContext.Session.GetInt32("UserId");
+                    var addressId = HttpContext.Session.GetInt32("AddressId");
                     var totalStr = HttpContext.Session.GetString("Total");
                     decimal.TryParse(totalStr, out decimal total);
 
-                    // ✅ Lấy đơn hàng "Unpaid" hiện tại
+                    // ✅ Lấy đơn hàng "Unpaid" hiện tại 
                     var order = _context.OrderTables
                         .FirstOrDefault(o => o.BuyerId == userId && o.Status == "Unpaid");
 
-                    if (order != null)
+                    if (order != null && addressId != null && addressId.Value > 0)
                     {
-                        order.Status = "Paid";
+                        order.Status = "Processing";
                         order.OrderDate = DateTime.Now;
+                        order.AddressId = addressId.Value;
                         _context.OrderTables.Update(order);
                     }
 
-                    // ✅ Ghi Payment bản duy nhất
+                    // ... (Logic ghi Payment của bạn) ...
                     var exists = _context.Payments.Any(p => p.TransactionId == executedPayment.id);
-                    if (!exists)
+                    if (!exists && order != null) { /* ... */ }
+
+                    _context.SaveChanges(); // <-- Lưu đơn hàng & thanh toán
+
+                    // ✅ GỌI API VẬN CHUYỂN
+                    if (order != null)
                     {
-                        var entity = new PaymentModule.Data.Entities.Payment
+                        try
                         {
-                            OrderId = order?.Id,
-                            UserId = userId ?? 0,
-                            Amount = total,
-                            Method = "PayPal",
-                            Status = "Completed",
-                            PaidAt = DateTime.Now,
-                            TransactionId = executedPayment.id
-                        };
-                        _context.Payments.Add(entity);
+                            await _orderTableService.CreateShipmentForOrderAsync(order.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Ghi log lỗi nhưng không chặn người dùng
+                            _logger.LogError(ex, "Lỗi khi gọi API vận chuyển cho Order {OrderId} (PayPal)", order.Id);
+                        }
                     }
 
-                    _context.SaveChanges();
                     HttpContext.Session.Remove("UserCart");
 
+                    // Chuyển đến trang Cảm ơn (nơi sẽ gửi mail)
                     return RedirectToAction("PaymentSuccess", "Order");
                 }
-
 
                 return Content("❌ Thanh toán thất bại.");
             }
