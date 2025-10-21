@@ -1,6 +1,6 @@
-﻿using PaymentModule.Business.Dtos.BusinessDtos;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using PaymentModule.Business.Dtos.BusinessDtos;
 
 namespace PaymentModule.Business.Dtos.OutputDtos
 {
@@ -13,6 +13,7 @@ namespace PaymentModule.Business.Dtos.OutputDtos
             TotalPrice = 0m;
             Success = true;
         }
+        public int OrderTableId { get; set; }
 
         public decimal TotalPrice { get; set; }
         public List<ItemInOrderTableDtos> Items { get; set; }

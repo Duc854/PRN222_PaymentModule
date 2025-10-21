@@ -6,5 +6,6 @@ namespace PaymentModule.Data.Abstractions
     public interface IAddressRepository
     {
         Task<Address> GetByIdAsync(int id);
+        Task<Address?> GetDefaultAddressByUserIdAsync(int userId);
     }
 }

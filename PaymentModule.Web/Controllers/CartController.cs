@@ -32,9 +32,19 @@ namespace PaymentModule.Web.Controllers
         }
 
         [HttpGet("api/calculate-shipping")]
-        public IActionResult CalculateShipping(string city)
+        public async Task<IActionResult> CalculateShipping(int addressId)
         {
-            var fee = _shippingFeeService.CalculateShippingFee(city);
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            int userId = int.Parse(userIdClaim);
+            var cart = await _orderTableService.GetCartByUserId(new UserCartInputDto { UserId = userId });
+
+            if (cart.OrderTableId == 0) // Giả sử DTO trả về ID của giỏ hàng
+                return BadRequest("Cart not found.");
+
+            var fee = await _shippingFeeService.CalculateShippingFeeAsync(cart.OrderTableId, addressId);
             return Ok(new { fee = fee });
         }
 

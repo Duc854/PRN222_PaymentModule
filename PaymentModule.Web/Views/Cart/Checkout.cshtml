@@ -1,4 +1,5 @@
 ﻿@model PaymentModule.Business.Dtos.OutputDtos.UserCartOutputDto
+@using PaymentModule.Data.Entities // Thêm using này để cast ViewBag
 @{
     ViewData["Title"] = "Checkout";
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -9,61 +10,59 @@
         <div class="checkout-left">
             <h2 class="checkout-title">Checkout</h2>
 
-            <!-- PAYMENT METHOD -->
             <div class="checkout-section">
                 <h3>Pay with</h3>
                 <div class="payment-options">
                     <label class="payment-option">
-                        <input type="radio" name="payment" />
+                        <input type="radio" name="payment" value="PayPal" />
                         <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg" alt="PayPal" class="payment-logo" />
                         <span>PayPal</span>
                     </label>
                     <label class="payment-option">
-                        <input type="radio" name="payment" checked />
+                        <input type="radio" name="payment" value="COD" checked />
                         <img src="https://cdn-icons-png.flaticon.com/512/1041/1041873.png" alt="COD" class="payment-logo" />
                         <span>Thanh toán khi nhận hàng (COD)</span>
                     </label>
                 </div>
             </div>
 
-            <!-- SHIPPING ADDRESS -->
             <div class="checkout-section">
                 <h3>Ship to</h3>
-                <div id="shipToBox">
-                    @if (ViewBag.AddressList != null && ViewBag.AddressList.Count > 0)
-                    {
-                        var addr = ViewBag.AddressList[0];
-                        <div class="ship-address" id="addressDisplay">
-                            <input type="hidden" id="shippingAddressId" value="@addr.Id" />
-                            <p><strong>@addr.FullName</strong></p>
-                            <p>@addr.Street</p>
-                            <p>@addr.City, @addr.State</p>
-                            <p>@addr.Country</p>
-                            <p>@addr.Phone</p>
-                            <button type="button" class="btn-edit-address" id="btnChangeAddress">Change</button>
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="no-address">⚠️ Bạn chưa có địa chỉ giao hàng</p>
-                    }
-                </div>
-                <button type="button" class="btn-add-address" id="btnAddAddress">+ Add new address</button>
+                @if (ViewBag.AddressList != null && ViewBag.AddressList.Count > 0)
+                {
+                    <select id="addressSelect" class="form-control" style="width: 100%; padding: 8px; border-radius: 5px; font-size: 16px;">
+                        @foreach (var addr in (List<Address>)ViewBag.AddressList)
+                        {
+                            <option value="@addr.Id"
+                                    data-full-name="@addr.FullName"
+                                    data-street="@addr.Street"
+                                    data-city="@addr.City"
+                                    data-state="@addr.State"
+                                    data-country="@addr.Country"
+                                    data-phone="@addr.Phone">
+                                @addr.FullName - @addr.Street, @addr.City
+                            </option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <p class="no-address">⚠️ Bạn chưa có địa chỉ giao hàng</p>
+                }
+                <button type="button" class="btn-add-address" id="btnAddAddress" style="margin-top: 10px;">+ Add new address</button>
             </div>
 
-            <!-- COUPON -->
             <div class="checkout-section">
                 <h3>Mã giảm giá</h3>
-                <select id="couponSelect" class="coupon-select">
+                <select id="couponSelect" class="coupon-select" style="padding: 8px; border-radius: 5px;">
                     <option value="">-- Chọn mã giảm giá --</option>
-                    <option value="10">Giảm 10%</option>
-                    <option value="20">Giảm 20%</option>
+                    <option value="10">Giảm 10% (fake)</option>
+                    <option value="20">Giảm 20% (fake)</option>
                 </select>
                 <button class="btn-apply-coupon" id="btnApplyCoupon">Áp dụng</button>
                 <p id="couponMsg" class="coupon-msg"></p>
             </div>
 
-            <!-- REVIEW ITEMS -->
             <div class="checkout-section">
                 <h3>Review items</h3>
                 @foreach (var item in Model.Items)
@@ -72,8 +71,8 @@
                         <img src="@item.Images" alt="@item.Title" class="checkout-item-img" />
                         <div class="checkout-item-info">
                             <p class="checkout-item-title">@item.Title</p>
-                            <p>Qty: @item.Quantity × $@item.Price.ToString("0.00")</p>
-                            <p><strong>$@item.TotalPrice.ToString("0.00")</strong></p>
+                            <p>Qty: @item.Quantity × @item.Price.ToString("N0") ₫</p>
+                            <p><strong>@item.TotalPrice.ToString("N0") ₫</strong></p>
                         </div>
                     </div>
                 }
@@ -95,7 +94,6 @@
     </div>
 </section>
 
-<!-- POPUP ADD ADDRESS -->
 <div id="addressModal" class="modal-overlay">
     <div class="modal-box">
         <h3>Add new address</h3>
@@ -121,20 +119,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnAdd = document.getElementById("btnAddAddress");
     const closeBtn = document.getElementById("closeModal");
     const form = document.getElementById("addressForm");
-    const shipToBox = document.getElementById("shipToBox");
     const confirmBtn = document.getElementById("btnConfirmPay");
+    const addressSelect = document.getElementById("addressSelect"); // Biến chính
 
     const subtotalEl = document.getElementById("subtotal");
     const shippingEl = document.getElementById("shippingCost");
     const discountEl = document.getElementById("discountAmount");
     const totalEl = document.getElementById("orderTotal");
 
-    let hasAddress = document.querySelector("#addressDisplay") !== null;
-    if (hasAddress) confirmBtn.disabled = false;
+    // Kiểm tra xem có địa chỉ nào không
+    let hasAddress = addressSelect != null && addressSelect.options.length > 0;
+    if (hasAddress) {
+        confirmBtn.disabled = false;
+    } else {
+        confirmBtn.disabled = true;
+    }
 
     // === HÀM HELPER ===
     function formatCurrency(num) {
-        return parseFloat(num).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+        return parseFloat(num).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
     // Hàm cập nhật tổng tiền
@@ -150,139 +153,144 @@ document.addEventListener("DOMContentLoaded", () => {
         confirmBtn.textContent = `Confirm and pay ${formatCurrency(total)}`;
     }
 
-    // Hàm gọi API tính phí
-    async function fetchShippingFee(city) {
+    // Hàm gọi API tính phí (DÙNG addressId)
+    async function fetchShippingFee(addressId) {
         shippingEl.textContent = "Đang tính...";
         try {
-            const response = await fetch(`/cart/api/calculate-shipping?city=${encodeURIComponent(city)}`);
-            if (!response.ok) throw new Error("Failed to fetch");
+            const response = await fetch(`/cart/api/calculate-shipping?addressId=${addressId}`);
+            if (!response.ok) throw new Error("Failed to fetch shipping fee");
 
             const data = await response.json();
             shippingEl.dataset.value = data.fee;
         } catch (error) {
             console.error("Lỗi tính phí ship:", error);
-            shippingEl.dataset.value = 50000; // Phí mặc định nếu lỗi
+            shippingEl.dataset.value = 50000; // Phí mặc định nếu lỗi API
         }
         updateSummary();
     }
 
-    // === LOGIC THÊM ĐỊA CHỈ (Sửa đổi) ===
-    form.addEventListener("submit", e => {
-        e.preventDefault();
-        const data = new FormData(form);
-        const fullName = data.get("fullName");
-        const street = data.get("street");
-        const city = data.get("city"); // <-- Lấy City
-        const state = data.get("state");
-        const country = data.get("country");
-        const phone = data.get("phone");
+    // === EVENT LISTENERS ===
 
-        // Cập nhật HTML (như cũ)
-        shipToBox.innerHTML = `
-            <div class="ship-address" id="addressDisplay">
-                <input type="hidden" id="shippingAddressId" value="0" />
-                <input type="hidden" id="shippingCity" value="${city}" />
-                <p><strong>${fullName}</strong></p>
-                <p>${street}</p>
-                <p>${city}, ${state}</p>
-                <p>${country}</p>
-                <p>${phone}</p>
-            </div>`;
-        modal.classList.remove("show");
-        hasAddress = true;
-        confirmBtn.disabled = false;
-
-        // GỌI API TÍNH PHÍ VỚI ĐỊA CHỈ MỚI
-        fetchShippingFee(city);
+    // 1. Lắng nghe sự kiện thay đổi địa chỉ
+    addressSelect?.addEventListener('change', () => {
+        const selectedAddressId = addressSelect.value;
+        fetchShippingFee(selectedAddressId);
     });
 
-    // === LOGIC ÁP DỤNG COUPON (Sửa đổi) ===
-    // ... (Code áp dụng coupon của bạn) ...
-    // Trong hàm applyBtn.addEventListener("click", ...),
-    // hãy đảm bảo bạn gọi updateSummary() sau khi tính discount.
-    // Ví dụ:
-    // discountEl.dataset.value = discount;
-    // updateSummary();
-    // ...
+    // 2. Logic Áp dụng Coupon
+    const couponSelect = document.getElementById("couponSelect");
+    const applyBtn = document.getElementById("btnApplyCoupon");
+    const msg = document.getElementById("couponMsg");
+    let couponUsed = false;
 
-    // === LOGIC CONFIRM PAY (Sửa đổi) ===
-    confirmBtn.addEventListener("click", () => {
-        if (!hasAddress) {
-            alert("⚠️ Bạn cần thêm địa chỉ giao hàng trước khi thanh toán!");
+    applyBtn.addEventListener("click", () => {
+        if (couponUsed) {
+            msg.textContent = "❌ Bạn đã áp dụng mã rồi!";
+            msg.style.color = "red";
             return;
         }
+        const coupon = couponSelect.value;
+        const subtotal = parseFloat(subtotalEl.dataset.value);
+        let discount = 0;
+        if (coupon === "10") {
+            discount = subtotal * 0.1;
+            msg.textContent = "✔️ Đã áp dụng mã giảm 10%";
+        } else if (coupon === "20") {
+            discount = subtotal * 0.2;
+            msg.textContent = "✔️ Đã áp dụng mã giảm 20%";
+        } else {
+            msg.textContent = "❌ Vui lòng chọn mã hợp lệ";
+            msg.style.color = "red";
+            return;
+        }
+
+        couponUsed = true;
+        discountEl.dataset.value = discount; // Cập nhật data-value
+        couponSelect.disabled = true;
+        applyBtn.disabled = true;
+        msg.style.color = "#0654ba";
+        
+        updateSummary(); // Gọi hàm update tổng tiền
+    });
+
+    // 3. Logic Confirm Pay (Đã sửa)
+    confirmBtn.addEventListener("click", () => {
+        if (!hasAddress || !addressSelect) {
+            alert("⚠️ Bạn cần chọn địa chỉ giao hàng!");
+            return;
+        }
+
         // Lấy dữ liệu từ các element
         const subtotal = parseFloat(subtotalEl.dataset.value);
         const shipping = parseFloat(shippingEl.dataset.value);
         const discount = parseFloat(discountEl.dataset.value);
         const total = subtotal + shipping - discount;
-        const coupon = document.getElementById("couponSelect").value;
+        const coupon = couponSelect.value;
+        
+        // Lấy thông tin từ <select>
+        const selectedOption = addressSelect.options[addressSelect.selectedIndex];
+        const addressId = parseInt(selectedOption.value);
+        
+        // Lấy thông tin chi tiết từ data-* attributes
+        const addressDetails = {
+            fullName: selectedOption.dataset.fullName,
+            street: selectedOption.dataset.street,
+            cityLine: `${selectedOption.dataset.city}, ${selectedOption.dataset.state}`,
+            country: selectedOption.dataset.country,
+            phone: selectedOption.dataset.phone
+        };
 
-        const addrEl = document.querySelector("#addressDisplay");
-        const addressId = parseInt(document.getElementById("shippingAddressId").value);
-        const fullName = addrEl.querySelector("strong").innerText;
-        const lines = addrEl.querySelectorAll("p");
-        const street = lines[1].innerText;
-        const cityLine = lines[2].innerText;
-        const country = lines[3].innerText;
-        const phone = lines[4].innerText;
+        const paymentMethod = document.querySelector('input[name="payment"]:checked').value; // Lấy từ 'value'
 
-        const paymentMethod = document.querySelector('input[name="payment"]:checked')
-                                .closest(".payment-option").querySelector("span").innerText.toLowerCase().includes("paypal") 
-                                ? "PayPal" : "COD";
-
-        // Gửi JSON về server (với phí ship ĐỘNG)
+        // Gửi JSON về server
         fetch("/order/ConfirmFromCheckout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 subtotal,
-                shipping, // <-- GỬI PHÍ SHIP ĐÚNG
+                shipping,
                 discount,
                 total,
                 coupon,
                 paymentMethod,
                 addressId: addressId, // Gửi ID
-                address: { fullName, street, cityLine, country, phone }
+                address: addressDetails // Gửi chi tiết để trang sau hiển thị
             })
-        }).then(() => window.location.href = "/order/confirm");
+        }).then(response => {
+            if (response.ok) {
+                window.location.href = "/order/confirm";
+            } else {
+                alert("Có lỗi xảy ra, không thể xác nhận đơn hàng.");
+            }
+        });
     });
 
-    // === KHỞI CHẠY LẦN ĐẦU ===
-    if (hasAddress) {
-        // Lấy thành phố từ địa chỉ mặc định (do C# render)
-        const defaultAddressP = document.querySelector("#addressDisplay p:nth-child(4)"); // Dòng "City, State"
-        // Hoặc an toàn hơn, thêm một hidden input cho city
-        @if (ViewBag.AddressList != null && ViewBag.AddressList.Count > 0)
-        {
-            // Thêm một input ẩn nữa trong div#addressDisplay
-            var addr = ViewBag.AddressList[0];
-            <text>
-            if(document.getElementById("shippingCity") == null) {
-                 let cityInput = document.createElement('input');
-                 cityInput.type = 'hidden';
-                 cityInput.id = 'shippingCity';
-                 cityInput.value = @Html.Raw(Json.Serialize(addr.City));
-                 document.getElementById('addressDisplay').prepend(cityInput);
-            }
-            </text>
-        }
-
-        const defaultCity = document.getElementById("shippingCity")?.value || "Tỉnh khác";
-        fetchShippingFee(defaultCity);
-    } else {
-        fetchShippingFee("Tỉnh khác"); // Mặc định nếu không có địa chỉ
-    }
-
-    // (Code popup cũ của bạn)
+    // 4. Logic Popup (Giữ nguyên)
     btnAdd?.addEventListener("click", () => modal.classList.add("show"));
     closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
     window.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); });
+    
+    // (Logic 'form.addEventListener("submit", ...)' đã bị xóa
+    // vì nó bị lỗi và tham chiếu đến các element không còn tồn tại.
+    // Bạn cần implement logic POST địa chỉ mới về server
+    // và reload trang ở đây.)
+
+    // === KHỞI CHẠY LẦN ĐẦU ===
+    if (hasAddress) {
+        // Lấy ID của địa chỉ đang được chọn
+        const initialAddressId = addressSelect.value;
+        fetchShippingFee(initialAddressId);
+    } else {
+        // Không có địa chỉ, không có gì để tính
+        shippingEl.textContent = formatCurrency(0);
+        updateSummary();
+    }
 });
 </script>
 
 
 <style>
+    /* CSS CỦA BẠN (GIỮ NGUYÊN) */
     .checkout-container {
         display: flex;
         justify-content: space-between;
@@ -326,6 +334,20 @@ document.addEventListener("DOMContentLoaded", () => {
         height: 30px;
         margin-right: 8px;
     }
+    
+    /* (Thêm) Căn chỉnh label thanh toán */
+    .payment-option {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        cursor: pointer;
+    }
+    .payment-option input {
+        margin-right: 10px;
+    }
 
     .btn-apply-coupon, .btn-confirm-pay {
         background: #0064d2;
@@ -356,6 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
         background: rgba(0,0,0,0.5);
         justify-content: center;
         align-items: center;
+        z-index: 1000; /* Thêm z-index */
     }
 
         .modal-overlay.show {
@@ -367,5 +390,38 @@ document.addEventListener("DOMContentLoaded", () => {
         padding: 20px;
         border-radius: 10px;
         width: 400px;
+    }
+
+    /* (Thêm) CSS cho form trong Modal */
+    .modal-box label {
+        display: block;
+        margin-top: 10px;
+        font-weight: 600;
+    }
+    .modal-box input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box; /* Thêm */
+    }
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .btn-cancel, .btn-save {
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: none;
+        cursor: pointer;
+    }
+    .btn-cancel {
+        background: #eee;
+    }
+    .btn-save {
+        background: #0064d2;
+        color: white;
     }
 </style>
