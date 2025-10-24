@@ -3,10 +3,25 @@
     ViewData["Title"] = "Xác nhận đơn hàng";
     Layout = "~/Views/Shared/_Layout.cshtml";
     var addr = ViewBag.Address;
+    var isCOD = ViewBag.PaymentMethod == "COD";
 }
 
 <section class="order-confirm">
     <div class="confirm-container">
+        @if (isCOD)
+        {
+            <!-- Countdown Timer cho COD -->
+            <div class="countdown-banner">
+                <div class="countdown-content">
+                    <span class="countdown-icon">⏰</span>
+                    <div>
+                        <p class="countdown-text">Vui lòng xác nhận đơn hàng trong:</p>
+                        <p class="countdown-timer" id="countdownTimer">10:00</p>
+                    </div>
+                </div>
+            </div>
+        }
+
         <h2>Xác nhận đơn hàng</h2>
 
         <!-- Địa chỉ giao hàng -->
@@ -69,21 +84,10 @@
             @if (ViewBag.PaymentMethod == "PayPal")
             {
                 <button class="btn-confirm" id="btnPayNow">Xác nhận & Thanh toán qua PayPal</button>
-                <script>
-                    document.getElementById("btnPayNow").addEventListener("click", function () {
-                        const total = "@ViewBag.Total";
-                        window.location.href = `/Payment/Create?amount=${total}`;
-                    });
-                </script>
             }
             else
             {
                 <button class="btn-confirm" id="btnCod">Xác nhận đơn hàng (COD)</button>
-                <script>
-                    document.getElementById("btnCod").addEventListener("click", function () {
-                        window.location.href = "/order/PaymentSuccess";
-                    });
-                </script>
             }
         </div>
     </div>
@@ -97,6 +101,64 @@
         border-radius: 10px;
         padding: 30px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .countdown-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .countdown-content {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        color: white;
+    }
+
+    .countdown-icon {
+        font-size: 48px;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .countdown-text {
+        font-size: 16px;
+        margin: 0;
+        opacity: 0.95;
+    }
+
+    .countdown-timer {
+        font-size: 32px;
+        font-weight: bold;
+        margin: 5px 0 0 0;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 2px;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.1);
+        }
+    }
+
+    @@keyframes blink {
+        0%, 50%, 100% {
+            opacity: 1;
+        }
+
+        25%, 75% {
+            opacity: 0.3;
+        }
+    }
+
+    .blink {
+        animation: blink 1s linear infinite;
     }
 
     .confirm-box {
@@ -139,12 +201,17 @@
         padding: 12px 24px;
         font-weight: 600;
         cursor: pointer;
+        transition: all 0.3s ease;
     }
 
     .btn-back {
         background: #ddd;
         color: #111;
     }
+
+        .btn-back:hover {
+            background: #ccc;
+        }
 
     .btn-confirm {
         background: #0064d2;
@@ -153,5 +220,93 @@
 
         .btn-confirm:hover {
             background: #0654ba;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(6, 100, 210, 0.4);
+        }
+
+        .btn-confirm:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
         }
 </style>
+
+<script>
+    (function() {
+        var paymentMethod = '@ViewBag.PaymentMethod';
+
+        if (paymentMethod === 'COD') {
+            var COUNTDOWN_DURATION = 60;
+            var timerElement = document.getElementById('countdownTimer');
+            var confirmButton = document.getElementById('btnCod');
+            var timeLeft = COUNTDOWN_DURATION;
+            var countdownInterval;
+            var isConfirming = false;
+
+            function formatTime(seconds) {
+                var mins = Math.floor(seconds / 60);
+                var secs = seconds % 60;
+                return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+            }
+
+            function updateDisplay() {
+                if (timerElement) {
+                    timerElement.textContent = formatTime(timeLeft);
+
+                    if (timeLeft <= 120) {
+                        timerElement.style.color = '#e74c3c';
+                        timerElement.style.fontWeight = 'bold';
+                    }
+
+                    if (timeLeft <= 30) {
+                        timerElement.classList.add('blink');
+                    }
+                }
+            }
+
+            function startCountdown() {
+                updateDisplay();
+
+                countdownInterval = setInterval(function() {
+                    timeLeft--;
+                    updateDisplay();
+
+                    if (timeLeft <= 0) {
+                        clearInterval(countdownInterval);
+
+                        if (!isConfirming) {
+                            alert('⏰ Đã hết thời gian thanh toán! Vui lòng thử lại.');
+                            window.location.href = '/cart/view';
+                        }
+                    }
+                }, 1000);
+            }
+
+            if (confirmButton) {
+                confirmButton.addEventListener('click', function() {
+                    isConfirming = true;
+                    clearInterval(countdownInterval);
+                    confirmButton.disabled = true;
+                    confirmButton.textContent = 'Đang xử lý...';
+                    window.location.href = '/order/PaymentSuccess';
+                });
+            }
+
+            startCountdown();
+
+            window.addEventListener('beforeunload', function() {
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+            });
+        } else if (paymentMethod === 'PayPal') {
+            var btnPayNow = document.getElementById('btnPayNow');
+            if (btnPayNow) {
+                btnPayNow.addEventListener('click', function() {
+                    var total = '@ViewBag.Total';
+                    window.location.href = '/Payment/Create?amount=' + total;
+                });
+            }
+        }
+    })();
+</script>

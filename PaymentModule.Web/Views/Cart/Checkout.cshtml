@@ -1,5 +1,5 @@
 ﻿@model PaymentModule.Business.Dtos.OutputDtos.UserCartOutputDto
-@using PaymentModule.Data.Entities // Thêm using này để cast ViewBag
+@using PaymentModule.Data.Entities 
 @{
     ViewData["Title"] = "Checkout";
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -87,7 +87,7 @@
                 <p>Phí vận chuyển: <span id="shippingCost" data-value="0">Đang tính...</span></p>
                 <p>Giảm giá: <span id="discountAmount" data-value="0">0 ₫</span></p>
                 <hr />
-                <p><strong>Tổng tiền: <span id="orderTotal" data-value="@Model.TotalPrice">@Model.TotalPrice.ToString("N0")</span> ₫</strong></p>
+                <p><strong>Tổng tiền: <span id="orderTotal" data-value="@Model.TotalPrice">@Model.TotalPrice.ToString("N0")</span></strong></p>
                 <button type="button" class="btn-confirm-pay" id="btnConfirmPay" disabled>Confirm and pay</button>
             </div>
         </div>
