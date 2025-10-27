@@ -76,7 +76,7 @@ namespace PaymentModule.Web
                         user,
                         _ => new SlidingWindowRateLimiterOptions
                         {
-                            PermitLimit = 5,
+                            PermitLimit = 20,
                             Window = TimeSpan.FromSeconds(10),
                             SegmentsPerWindow = 5,
                             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
