@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 // Alias để tránh trùng với Payment entity trong Data layer
 using PayPalPayment = PayPal.Api.Payment;
+using PaymentModule.Business.Exceptions;
 
 namespace PaymentModule.Business.Services
 {
@@ -27,15 +28,22 @@ namespace PaymentModule.Business.Services
 
         private APIContext GetAPIContext()
         {
-            var config = new Dictionary<string, string>
+            try
             {
-                { "mode", _mode },
-                { "clientId", _clientId },
-                { "clientSecret", _clientSecret }
-            };
+                var config = new Dictionary<string, string>
+                {
+                    { "mode", _mode },
+                    { "clientId", _clientId },
+                    { "clientSecret", _clientSecret }
+                };
 
-            var accessToken = new OAuthTokenCredential(_clientId, _clientSecret, config).GetAccessToken();
-            return new APIContext(accessToken) { Config = config };
+                var accessToken = new OAuthTokenCredential(_clientId, _clientSecret, config).GetAccessToken();
+                return new APIContext(accessToken) { Config = config };
+            }
+            catch (Exception ex)
+            {
+                throw new PaymentException("Non-create transaction","Không thể khởi tạo PayPal APIContext", ex);
+            }
         }
 
         public PayPalPayment CreatePayment(decimal amount)

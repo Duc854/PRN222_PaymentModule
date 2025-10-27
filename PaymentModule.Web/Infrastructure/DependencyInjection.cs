@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PaymentModule.Business.Abstraction;
 using PaymentModule.Business.Abstractions;
-using PaymentModule.Business.Exception;
 using PaymentModule.Business.Services;
 using PaymentModule.Data;
 using PaymentModule.Data.Abstractions;
@@ -23,16 +22,14 @@ namespace PaymentModule.Web.Infrastructure
             services.AddScoped<IOrderTableService, OrderTableService>();
             services.AddScoped<IShippingService, MockShippingService>();
             services.AddScoped<IShippingFeeService, ShippingFeeService>();
+            services.AddScoped<IProductService, ProductService>();
+            services.AddScoped<IAddressService, AddressService>();
+            services.AddScoped<IEmailService, EmailService>();
             //Add Repositories
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IOrderTableRepository, OrderTableRepository>();
             services.AddScoped<IOrderItemRepository, OrderItemRepository>();
-            services.AddScoped<IOrderTableService, OrderTableService>();
             services.AddScoped<IProductRepository, ProductRepository>();
-            services.AddScoped<IProductService, ProductService>();
-            services.AddScoped<IUserService, UserService>();
-            services.AddScoped<IAddressService, AddressService>();
-            services.AddScoped<IOrderTableService, OrderTableService>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IShippingInfoRepository, ShippingInfoRepository>();
             services.AddScoped<IAddressRepository, AddressRepository>();

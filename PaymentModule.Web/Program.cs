@@ -1,9 +1,9 @@
 ﻿using System.IO;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
-using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Services;
 using PaymentModule.Web.Infrastructure;
+using PaymentModule.Web.Middleware;
 
 namespace PaymentModule.Web
 {
@@ -25,7 +25,6 @@ namespace PaymentModule.Web
 
             // 1️⃣ Add MVC
             builder.Services.AddControllersWithViews();
-
             // 2️⃣ Add infrastructure (DbContext, Repository, Service)
             builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -63,9 +62,6 @@ namespace PaymentModule.Web
                     options.ExpireTimeSpan = TimeSpan.FromHours(2);
                 });
 
-            //đăng kí service gửi mail
-            builder.Services.AddScoped<IEmailService, EmailService>();
-
             var app = builder.Build();
 
             // 6️⃣ Error handling
@@ -79,6 +75,8 @@ namespace PaymentModule.Web
             app.UseStaticFiles();
 
             app.UseRouting();
+
+            app.UseCustomExceptionLogging();
 
             app.UseCookiePolicy();
 

@@ -8,7 +8,7 @@ using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Dtos.BusinessDtos;
 using PaymentModule.Business.Dtos.InputDtos;
 using PaymentModule.Business.Dtos.OutputDtos;
-using PaymentModule.Business.Exception;
+using PaymentModule.Business.Exceptions;
 using PaymentModule.Data.Abstractions;
 using PaymentModule.Data.Entities;
 using Polly;

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using PaymentModule.Business.Abstraction;
-using PaymentModule.Business.Exception;
+using PaymentModule.Business.Exceptions;
 using PaymentModule.Data.Entities;
 
 namespace PaymentModule.Business.Services

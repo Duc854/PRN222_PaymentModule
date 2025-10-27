@@ -1,9 +1,12 @@
-namespace PaymentModule.Business.Exception
+namespace PaymentModule.Business.Exceptions
 {
-    public class ShippingApiException : System.Exception
+    public class ShippingApiException : Exception
     {
+        public string? TransactionID { get; set; }
         public ShippingApiException(string message) : base(message) { }
-        public ShippingApiException(string message, System.Exception innerException)
+
+        public ShippingApiException(string transactionId, string message) : base(message) { }
+        public ShippingApiException(string message, Exception innerException)
             : base(message, innerException) { }
     }
 }
