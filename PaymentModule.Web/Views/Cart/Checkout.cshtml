@@ -1,5 +1,5 @@
 ﻿@model PaymentModule.Business.Dtos.OutputDtos.UserCartOutputDto
-@using PaymentModule.Data.Entities 
+@using PaymentModule.Data.Entities
 @{
     ViewData["Title"] = "Checkout";
     Layout = "~/Views/Shared/_Layout.cshtml";
@@ -113,179 +113,179 @@
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    // === KHAI BÁO BIẾN ===
-    const modal = document.getElementById("addressModal");
-    const btnAdd = document.getElementById("btnAddAddress");
-    const closeBtn = document.getElementById("closeModal");
-    const form = document.getElementById("addressForm");
-    const confirmBtn = document.getElementById("btnConfirmPay");
-    const addressSelect = document.getElementById("addressSelect"); // Biến chính
+    document.addEventListener("DOMContentLoaded", () => {
+        // === KHAI BÁO BIẾN ===
+        const modal = document.getElementById("addressModal");
+        const btnAdd = document.getElementById("btnAddAddress");
+        const closeBtn = document.getElementById("closeModal");
+        const form = document.getElementById("addressForm");
+        const confirmBtn = document.getElementById("btnConfirmPay");
+        const addressSelect = document.getElementById("addressSelect"); // Biến chính
 
-    const subtotalEl = document.getElementById("subtotal");
-    const shippingEl = document.getElementById("shippingCost");
-    const discountEl = document.getElementById("discountAmount");
-    const totalEl = document.getElementById("orderTotal");
+        const subtotalEl = document.getElementById("subtotal");
+        const shippingEl = document.getElementById("shippingCost");
+        const discountEl = document.getElementById("discountAmount");
+        const totalEl = document.getElementById("orderTotal");
 
-    // Kiểm tra xem có địa chỉ nào không
-    let hasAddress = addressSelect != null && addressSelect.options.length > 0;
-    if (hasAddress) {
-        confirmBtn.disabled = false;
-    } else {
-        confirmBtn.disabled = true;
-    }
-
-    // === HÀM HELPER ===
-    function formatCurrency(num) {
-        return parseFloat(num).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    }
-
-    // Hàm cập nhật tổng tiền
-    function updateSummary() {
-        const subtotal = parseFloat(subtotalEl.dataset.value) || 0;
-        const shipping = parseFloat(shippingEl.dataset.value) || 0;
-        const discount = parseFloat(discountEl.dataset.value) || 0;
-        const total = subtotal + shipping - discount;
-
-        shippingEl.textContent = formatCurrency(shipping);
-        discountEl.textContent = formatCurrency(discount);
-        totalEl.textContent = formatCurrency(total);
-        confirmBtn.textContent = `Confirm and pay ${formatCurrency(total)}`;
-    }
-
-    // Hàm gọi API tính phí (DÙNG addressId)
-    async function fetchShippingFee(addressId) {
-        shippingEl.textContent = "Đang tính...";
-        try {
-            const response = await fetch(`/cart/api/calculate-shipping?addressId=${addressId}`);
-            if (!response.ok) throw new Error("Failed to fetch shipping fee");
-
-            const data = await response.json();
-            shippingEl.dataset.value = data.fee;
-        } catch (error) {
-            console.error("Lỗi tính phí ship:", error);
-            shippingEl.dataset.value = 50000; // Phí mặc định nếu lỗi API
-        }
-        updateSummary();
-    }
-
-    // === EVENT LISTENERS ===
-
-    // 1. Lắng nghe sự kiện thay đổi địa chỉ
-    addressSelect?.addEventListener('change', () => {
-        const selectedAddressId = addressSelect.value;
-        fetchShippingFee(selectedAddressId);
-    });
-
-    // 2. Logic Áp dụng Coupon
-    const couponSelect = document.getElementById("couponSelect");
-    const applyBtn = document.getElementById("btnApplyCoupon");
-    const msg = document.getElementById("couponMsg");
-    let couponUsed = false;
-
-    applyBtn.addEventListener("click", () => {
-        if (couponUsed) {
-            msg.textContent = "❌ Bạn đã áp dụng mã rồi!";
-            msg.style.color = "red";
-            return;
-        }
-        const coupon = couponSelect.value;
-        const subtotal = parseFloat(subtotalEl.dataset.value);
-        let discount = 0;
-        if (coupon === "10") {
-            discount = subtotal * 0.1;
-            msg.textContent = "✔️ Đã áp dụng mã giảm 10%";
-        } else if (coupon === "20") {
-            discount = subtotal * 0.2;
-            msg.textContent = "✔️ Đã áp dụng mã giảm 20%";
+        // Kiểm tra xem có địa chỉ nào không
+        let hasAddress = addressSelect != null && addressSelect.options.length > 0;
+        if (hasAddress) {
+            confirmBtn.disabled = false;
         } else {
-            msg.textContent = "❌ Vui lòng chọn mã hợp lệ";
-            msg.style.color = "red";
-            return;
+            confirmBtn.disabled = true;
         }
 
-        couponUsed = true;
-        discountEl.dataset.value = discount; // Cập nhật data-value
-        couponSelect.disabled = true;
-        applyBtn.disabled = true;
-        msg.style.color = "#0654ba";
-        
-        updateSummary(); // Gọi hàm update tổng tiền
-    });
-
-    // 3. Logic Confirm Pay (Đã sửa)
-    confirmBtn.addEventListener("click", () => {
-        if (!hasAddress || !addressSelect) {
-            alert("⚠️ Bạn cần chọn địa chỉ giao hàng!");
-            return;
+        // === HÀM HELPER ===
+        function formatCurrency(num) {
+            return parseFloat(num).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 });
         }
 
-        // Lấy dữ liệu từ các element
-        const subtotal = parseFloat(subtotalEl.dataset.value);
-        const shipping = parseFloat(shippingEl.dataset.value);
-        const discount = parseFloat(discountEl.dataset.value);
-        const total = subtotal + shipping - discount;
-        const coupon = couponSelect.value;
-        
-        // Lấy thông tin từ <select>
-        const selectedOption = addressSelect.options[addressSelect.selectedIndex];
-        const addressId = parseInt(selectedOption.value);
-        
-        // Lấy thông tin chi tiết từ data-* attributes
-        const addressDetails = {
-            fullName: selectedOption.dataset.fullName,
-            street: selectedOption.dataset.street,
-            cityLine: `${selectedOption.dataset.city}, ${selectedOption.dataset.state}`,
-            country: selectedOption.dataset.country,
-            phone: selectedOption.dataset.phone
-        };
+        // Hàm cập nhật tổng tiền
+        function updateSummary() {
+            const subtotal = parseFloat(subtotalEl.dataset.value) || 0;
+            const shipping = parseFloat(shippingEl.dataset.value) || 0;
+            const discount = parseFloat(discountEl.dataset.value) || 0;
+            const total = subtotal + shipping - discount;
 
-        const paymentMethod = document.querySelector('input[name="payment"]:checked').value; // Lấy từ 'value'
+            shippingEl.textContent = formatCurrency(shipping);
+            discountEl.textContent = formatCurrency(discount);
+            totalEl.textContent = formatCurrency(total);
+            confirmBtn.textContent = `Confirm and pay ${formatCurrency(total)}`;
+        }
 
-        // Gửi JSON về server
-        fetch("/order/ConfirmFromCheckout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                subtotal,
-                shipping,
-                discount,
-                total,
-                coupon,
-                paymentMethod,
-                addressId: addressId, // Gửi ID
-                address: addressDetails // Gửi chi tiết để trang sau hiển thị
-            })
-        }).then(response => {
-            if (response.ok) {
-                window.location.href = "/order/confirm";
-            } else {
-                alert("Có lỗi xảy ra, không thể xác nhận đơn hàng.");
+        // Hàm gọi API tính phí (DÙNG addressId)
+        async function fetchShippingFee(addressId) {
+            shippingEl.textContent = "Đang tính...";
+            try {
+                const response = await fetch(`/cart/api/calculate-shipping?addressId=${addressId}`);
+                if (!response.ok) throw new Error("Failed to fetch shipping fee");
+
+                const data = await response.json();
+                shippingEl.dataset.value = data.fee;
+            } catch (error) {
+                console.error("Lỗi tính phí ship:", error);
+                shippingEl.dataset.value = 50000; // Phí mặc định nếu lỗi API
             }
+            updateSummary();
+        }
+
+        // === EVENT LISTENERS ===
+
+        // 1. Lắng nghe sự kiện thay đổi địa chỉ
+        addressSelect?.addEventListener('change', () => {
+            const selectedAddressId = addressSelect.value;
+            fetchShippingFee(selectedAddressId);
         });
+
+        // 2. Logic Áp dụng Coupon
+        const couponSelect = document.getElementById("couponSelect");
+        const applyBtn = document.getElementById("btnApplyCoupon");
+        const msg = document.getElementById("couponMsg");
+        let couponUsed = false;
+
+        applyBtn.addEventListener("click", () => {
+            if (couponUsed) {
+                msg.textContent = "❌ Bạn đã áp dụng mã rồi!";
+                msg.style.color = "red";
+                return;
+            }
+            const coupon = couponSelect.value;
+            const subtotal = parseFloat(subtotalEl.dataset.value);
+            let discount = 0;
+            if (coupon === "10") {
+                discount = subtotal * 0.1;
+                msg.textContent = "✔️ Đã áp dụng mã giảm 10%";
+            } else if (coupon === "20") {
+                discount = subtotal * 0.2;
+                msg.textContent = "✔️ Đã áp dụng mã giảm 20%";
+            } else {
+                msg.textContent = "❌ Vui lòng chọn mã hợp lệ";
+                msg.style.color = "red";
+                return;
+            }
+
+            couponUsed = true;
+            discountEl.dataset.value = discount; // Cập nhật data-value
+            couponSelect.disabled = true;
+            applyBtn.disabled = true;
+            msg.style.color = "#0654ba";
+
+            updateSummary(); // Gọi hàm update tổng tiền
+        });
+
+        // 3. Logic Confirm Pay (Đã sửa)
+        confirmBtn.addEventListener("click", () => {
+            if (!hasAddress || !addressSelect) {
+                alert("⚠️ Bạn cần chọn địa chỉ giao hàng!");
+                return;
+            }
+
+            // Lấy dữ liệu từ các element
+            const subtotal = parseFloat(subtotalEl.dataset.value);
+            const shipping = parseFloat(shippingEl.dataset.value);
+            const discount = parseFloat(discountEl.dataset.value);
+            const total = subtotal + shipping - discount;
+            const coupon = couponSelect.value;
+
+            // Lấy thông tin từ <select>
+            const selectedOption = addressSelect.options[addressSelect.selectedIndex];
+            const addressId = parseInt(selectedOption.value);
+
+            // Lấy thông tin chi tiết từ data-* attributes
+            const addressDetails = {
+                fullName: selectedOption.dataset.fullName,
+                street: selectedOption.dataset.street,
+                cityLine: `${selectedOption.dataset.city}, ${selectedOption.dataset.state}`,
+                country: selectedOption.dataset.country,
+                phone: selectedOption.dataset.phone
+            };
+
+            const paymentMethod = document.querySelector('input[name="payment"]:checked').value; // Lấy từ 'value'
+
+            // Gửi JSON về server
+            fetch("/order/ConfirmFromCheckout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    subtotal,
+                    shipping,
+                    discount,
+                    total,
+                    coupon,
+                    paymentMethod,
+                    addressId: addressId, // Gửi ID
+                    address: addressDetails // Gửi chi tiết để trang sau hiển thị
+                })
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = "/order/confirm";
+                } else {
+                    alert("Có lỗi xảy ra, không thể xác nhận đơn hàng.");
+                }
+            });
+        });
+
+        // 4. Logic Popup (Giữ nguyên)
+        btnAdd?.addEventListener("click", () => modal.classList.add("show"));
+        closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
+        window.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); });
+
+        // (Logic 'form.addEventListener("submit", ...)' đã bị xóa
+        // vì nó bị lỗi và tham chiếu đến các element không còn tồn tại.
+        // Bạn cần implement logic POST địa chỉ mới về server
+        // và reload trang ở đây.)
+
+        // === KHỞI CHẠY LẦN ĐẦU ===
+        if (hasAddress) {
+            // Lấy ID của địa chỉ đang được chọn
+            const initialAddressId = addressSelect.value;
+            fetchShippingFee(initialAddressId);
+        } else {
+            // Không có địa chỉ, không có gì để tính
+            shippingEl.textContent = formatCurrency(0);
+            updateSummary();
+        }
     });
-
-    // 4. Logic Popup (Giữ nguyên)
-    btnAdd?.addEventListener("click", () => modal.classList.add("show"));
-    closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
-    window.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); });
-    
-    // (Logic 'form.addEventListener("submit", ...)' đã bị xóa
-    // vì nó bị lỗi và tham chiếu đến các element không còn tồn tại.
-    // Bạn cần implement logic POST địa chỉ mới về server
-    // và reload trang ở đây.)
-
-    // === KHỞI CHẠY LẦN ĐẦU ===
-    if (hasAddress) {
-        // Lấy ID của địa chỉ đang được chọn
-        const initialAddressId = addressSelect.value;
-        fetchShippingFee(initialAddressId);
-    } else {
-        // Không có địa chỉ, không có gì để tính
-        shippingEl.textContent = formatCurrency(0);
-        updateSummary();
-    }
-});
 </script>
 
 
@@ -334,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
         height: 30px;
         margin-right: 8px;
     }
-    
+
     /* (Thêm) Căn chỉnh label thanh toán */
     .payment-option {
         display: flex;
@@ -345,9 +345,10 @@ document.addEventListener("DOMContentLoaded", () => {
         margin-bottom: 8px;
         cursor: pointer;
     }
-    .payment-option input {
-        margin-right: 10px;
-    }
+
+        .payment-option input {
+            margin-right: 10px;
+        }
 
     .btn-apply-coupon, .btn-confirm-pay {
         background: #0064d2;
@@ -392,34 +393,39 @@ document.addEventListener("DOMContentLoaded", () => {
         width: 400px;
     }
 
-    /* (Thêm) CSS cho form trong Modal */
-    .modal-box label {
-        display: block;
-        margin-top: 10px;
-        font-weight: 600;
-    }
-    .modal-box input[type="text"] {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        box-sizing: border-box; /* Thêm */
-    }
+        /* (Thêm) CSS cho form trong Modal */
+        .modal-box label {
+            display: block;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .modal-box input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Thêm */
+        }
+
     .modal-actions {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
         margin-top: 20px;
     }
+
     .btn-cancel, .btn-save {
         padding: 8px 16px;
         border-radius: 20px;
         border: none;
         cursor: pointer;
     }
+
     .btn-cancel {
         background: #eee;
     }
+
     .btn-save {
         background: #0064d2;
         color: white;

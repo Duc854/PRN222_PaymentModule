@@ -1,0 +1,171 @@
+﻿@model IEnumerable<PaymentModule.Data.Entities.OrderTable>
+
+@{
+    ViewData["Title"] = "Seller  Management";
+}
+
+<div class="content-wrapper">
+    <div class="cod-card">
+        <div class="cod-header">
+            <h2>@ViewData["Title"]</h2>
+        </div>
+
+        <div class="cod-body">
+            @if (Model != null && Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle text-center mb-0">
+                        <thead>
+                            <tr>
+                                <th>Buyer</th>
+                                <th>Order Date</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                                <th>Total Amount</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var order in Model)
+                            {
+                                var payment = order.Payments?.FirstOrDefault();
+                                string paymentStatus = payment?.Status ?? "Unpaid";
+
+                                <tr>
+                                    <td>@order.Buyer?.Username</td>
+                                    <td>@order.OrderDate?.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <span class="badge status-badge
+                                            @(order.Status == "Pending" ? "bg-warning text-dark" :
+                                            order.Status == "Confirmed" ? "bg-info text-dark" :
+                                            order.Status == "Delivered" ? "bg-success" :
+                                            order.Status == "Completed" ? "bg-primary" : "bg-secondary")">
+                                            @order.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(paymentStatus == "Paid" ? "bg-success" : "bg-secondary")">
+                                            @paymentStatus
+                                        </span>
+                                    </td>
+                                    <td class="fw-bold text-primary">@order.TotalPrice ₫</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a asp-action="Detail" asp-route-id="@order.Id" class="btn btn-outline-primary">
+                                                <i class="bi bi-eye"></i> Details
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-center text-muted mt-4 fs-5">No orders available.</p>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        background-color: #f5f7fa;
+        font-family: "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* main container */
+    .content-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        min-height: 100vh;
+        padding: 40px 20px;
+    }
+
+    /* card */
+    .cod-card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        width: 100%;
+        max-width: 1300px;
+        transition: 0.3s;
+    }
+
+        .cod-card:hover {
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+        }
+
+    /* header */
+    .cod-header {
+        background: linear-gradient(90deg, #007bff, #0045a6);
+        padding: 18px 0;
+        text-align: center;
+        color: white;
+    }
+
+        .cod-header h2 {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+    /* table */
+    .table {
+        width: 100%;
+        margin-bottom: 0;
+    }
+
+        .table thead {
+            background-color: #e9ecef;
+        }
+
+            .table thead th {
+                font-weight: 600;
+                text-transform: uppercase;
+                color: #333;
+                letter-spacing: 0.5px;
+            }
+
+        .table tbody tr {
+            transition: all 0.25s ease;
+        }
+
+            .table tbody tr:hover {
+                background-color: #f1f6ff;
+                transform: scale(1.01);
+            }
+
+    th, td {
+        vertical-align: middle;
+        padding: 14px 10px;
+        text-align: center;
+    }
+
+    .status-badge {
+        font-size: 0.9rem;
+        padding: 8px 12px;
+        border-radius: 10px;
+    }
+
+    .btn-group .btn {
+        border-radius: 8px !important;
+        font-weight: 500;
+        transition: 0.2s;
+    }
+
+        .btn-group .btn:hover {
+            transform: translateY(-2px);
+        }
+
+    .btn i {
+        margin-right: 4px;
+    }
+</style>

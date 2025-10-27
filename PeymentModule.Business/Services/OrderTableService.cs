@@ -209,7 +209,7 @@ namespace PaymentModule.Business.Services
                     Amount = order.TotalPrice ?? 0,
                     Method = "COD",
                     PaidAt = DateTime.Now,
-                    Status = "Completed"
+                    Status = "Pending"
                 };
 
                 await _paymentRepo.CreatePaymentAsync(payment);
