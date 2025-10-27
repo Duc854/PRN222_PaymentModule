@@ -1,6 +1,10 @@
 ﻿using System.IO;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using PaymentModule.Business.Services;
 using PaymentModule.Web.Infrastructure;
 using PaymentModule.Web.Middleware;
@@ -53,7 +57,7 @@ namespace PaymentModule.Web
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
-                    options.LoginPath = "/Account/Login"; // ✅ đúng controller
+                    options.LoginPath = "/User/Login";
                     options.AccessDeniedPath = "/Shared/AccessDenied";
                     options.Cookie.HttpOnly = true;
                     options.Cookie.SameSite = SameSiteMode.Lax;
@@ -61,6 +65,25 @@ namespace PaymentModule.Web
                     options.SlidingExpiration = true;
                     options.ExpireTimeSpan = TimeSpan.FromHours(2);
                 });
+            // Add user rate limiter
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = 429;
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                {
+                    var user = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+                    return RateLimitPartition.GetSlidingWindowLimiter(
+                        user,
+                        _ => new SlidingWindowRateLimiterOptions
+                        {
+                            PermitLimit = 5,
+                            Window = TimeSpan.FromSeconds(10),
+                            SegmentsPerWindow = 5,
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        });
+                });
+            });
 
             var app = builder.Build();
 
@@ -83,6 +106,7 @@ namespace PaymentModule.Web
             // 7️⃣ Middlewares
             app.UseSession();
             app.UseAuthentication();
+            app.UseRateLimiter();
             app.UseAuthorization();
 
             // 8️⃣ Default route
