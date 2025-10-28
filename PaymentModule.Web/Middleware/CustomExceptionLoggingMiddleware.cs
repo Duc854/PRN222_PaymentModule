@@ -28,19 +28,24 @@ namespace PaymentModule.Web.Middleware
                 switch (ex)
                 {
                     case PaymentException pex:
-                        _fileLogger.LogWarning(ex, "💳 PaymentException xảy ra [{TransactionId}]: {Message}", pex.TransactionID, ex.Message);
+                        _fileLogger.LogWarning(ex,
+                            "💳 PaymentException xảy ra [TransactionId: {TransactionId}] - {Message}",
+                            pex.TransactionID ?? "N/A", ex.Message);
                         break;
 
-                    case ShippingApiException:
-                        _fileLogger.LogWarning(ex, "🚚 ShippingException xảy ra: {Message}", ex.Message);
+                    case ShippingApiException sex:
+                        _fileLogger.LogWarning(sex,
+                            "🚚 ShippingApiException xảy ra: {Message}", sex.Message);
                         break;
 
-                    case EmailException:
-                        _fileLogger.LogWarning(ex, "📧 EmailException xảy ra: {Message}", ex.Message);
+                    case EmailException eex:
+                        _fileLogger.LogWarning(eex,
+                            "📧 EmailException xảy ra: {Message}", eex.Message);
                         break;
 
                     default:
-                        _fileLogger.LogError(ex, "❗ Exception không xác định: {Message}", ex.Message);
+                        _fileLogger.LogError(ex,
+                            "❗ Exception không xác định: {Message}", ex.Message);
                         break;
                 }
 
