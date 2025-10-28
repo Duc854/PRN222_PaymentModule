@@ -223,7 +223,38 @@ namespace PaymentModule.Web.Controllers
         public async Task<IActionResult> SyncShippingStatus(int id,
             [FromServices] IOrderTableService orderTableService)
         {
-            await orderTableService.SyncShipmentStatusAsync(id);
+            bool changed = await orderTableService.SyncShipmentStatusAsync(id);
+            if (changed)
+            {
+                // 2️⃣ Lấy thông tin đơn hàng và người dùng để gửi mail
+                var order = _context.OrderTables
+                .Where(o => o.Id == id)
+                .Select(o => new
+                {
+                    o.Id,
+                    o.Status,
+                    Email = o.Buyer.Email,
+                    Username = o.Buyer.Username
+                })
+                .FirstOrDefault();  
+
+
+                if (order != null && !string.IsNullOrEmpty(order.Email))
+                {
+                    string subject = $"[CloneEbay] Trạng thái đơn hàng #{order.Id} đã thay đổi";
+                    string body = $@"
+                    <h3>Xin chào, {order.Username}!</h3>
+                    <p>Đơn hàng <b>#{order.Id}</b> của bạn hiện đang ở trạng thái: 
+                    <b>{order.Status}</b>.</p>
+                    <p>Bạn có thể theo dõi chi tiết đơn hàng tại trang <a href='{Url.Action("OrderTracking", "Order", new { id = order.Id }, Request.Scheme)}'>Order Tracking</a>.</p>
+                    <hr/>
+                    <p>CloneEbay Team</p>";
+
+                    await _emailService.SendEmailAsync(order.Email, subject, body);
+
+                    //logger.LogInformation("Đã gửi email cập nhật trạng thái cho {Email}", order.Email);
+                }
+            }
             return RedirectToAction("OrderTracking", new { id });
         }
 
