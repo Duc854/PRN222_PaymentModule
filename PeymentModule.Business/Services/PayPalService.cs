@@ -83,13 +83,20 @@ namespace PaymentModule.Business.Services
 
             return payment.Create(apiContext);
         }
-
         public PayPalPayment ExecutePayment(string paymentId, string payerId)
         {
             var apiContext = GetAPIContext();
+
             var paymentExecution = new PaymentExecution { payer_id = payerId };
             var payment = new PayPalPayment { id = paymentId };
-            return payment.Execute(apiContext, paymentExecution);
+
+            // Giới hạn tối đa 2 giây
+            var task = Task.Run(() => payment.Execute(apiContext, paymentExecution));
+            if (!task.Wait(TimeSpan.FromSeconds(2)))
+                throw new PaymentException(paymentId, "PayPal payment confirmation exceeded 2 seconds");
+
+            return task.Result;
         }
+
     }
 }

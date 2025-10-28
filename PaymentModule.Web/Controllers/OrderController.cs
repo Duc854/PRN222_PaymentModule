@@ -1,11 +1,14 @@
 ﻿using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Dtos.OutputDtos;
-using PaymentModule.Business.Services;
 using PaymentModule.Data;
 using PaymentModule.Data.Entities;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace PaymentModule.Web.Controllers
 {
@@ -21,7 +24,7 @@ namespace PaymentModule.Web.Controllers
             _emailService = emailService;
         }
 
-        // ✅ Nhận dữ liệu từ Checkout và lưu vào Session
+        // ✅ Receive checkout data and store in Session
         [HttpPost("ConfirmFromCheckout")]
         public IActionResult ConfirmFromCheckout([FromBody] JsonElement data)
         {
@@ -34,9 +37,7 @@ namespace PaymentModule.Web.Controllers
             HttpContext.Session.SetString("Total", data.GetProperty("total").GetDecimal().ToString());
 
             if (data.TryGetProperty("addressId", out var idProp) && idProp.GetInt32() > 0)
-            {
                 HttpContext.Session.SetInt32("AddressId", idProp.GetInt32());
-            }
 
             if (data.TryGetProperty("coupon", out var couponProp))
                 HttpContext.Session.SetString("Coupon", couponProp.GetString() ?? "");
@@ -53,10 +54,10 @@ namespace PaymentModule.Web.Controllers
                 HttpContext.Session.SetString("Phone", addrProp.GetProperty("phone").GetString() ?? "");
             }
 
-
             return Ok();
         }
 
+        // ✅ Checkout confirmation page
         [HttpGet("confirm")]
         public IActionResult Confirm()
         {
@@ -92,18 +93,17 @@ namespace PaymentModule.Web.Controllers
             ViewBag.Total = HttpContext.Session.GetString("Total");
             ViewBag.Coupon = HttpContext.Session.GetString("Coupon");
             ViewBag.Address = address;
-
-            // ✅ Thêm dòng này
             ViewBag.PaymentMethod = HttpContext.Session.GetString("PaymentMethod") ?? "COD";
 
             return View(cart);
         }
 
+        // ✅ Payment success (PayPal or COD)
         [HttpGet("PaymentSuccess")]
         public async Task<IActionResult> PaymentSuccess(
             [FromServices] IOrderTableService orderTableService,
             [FromServices] ILogger<OrderController> logger,
-            int? orderId) // Chấp nhận OrderId từ PayPal
+            int? orderId)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             var addressId = HttpContext.Session.GetInt32("AddressId");
@@ -111,123 +111,107 @@ namespace PaymentModule.Web.Controllers
 
             if (userId == null || user == null)
             {
-                logger.LogWarning("PaymentSuccess được tải nhưng không có UserId trong Session.");
-                return RedirectToAction("Index", "Home"); // Lỗi, về trang chủ
+                logger.LogWarning("PaymentSuccess loaded but no UserId found in Session.");
+                return RedirectToAction("Index", "Home");
             }
 
             OrderTable completedOrder;
             string paymentMethodForEmail;
-
-            // Kiểm tra "dấu" chúng ta đã đặt ở Bước 1
             string paymentProcessed = HttpContext.Session.GetString("PaymentProcessed");
 
             if (paymentProcessed == "true")
             {
-                // === LUỒNG 1: PAYPAL ===
-                // Đơn hàng đã được xử lý. Chỉ cần lấy thông tin để gửi mail.
+                // === PayPal flow ===
                 if (orderId == null)
                 {
-                    logger.LogError("Lỗi luồng PayPal: Đã xử lý nhưng không có OrderId.");
+                    logger.LogError("PayPal flow error: missing OrderId after payment processed.");
                     return RedirectToAction("Index", "Home");
                 }
 
                 completedOrder = await orderTableService.GetOrderDetailsAsync(orderId.Value);
                 paymentMethodForEmail = "PayPal";
-
-                // Xóa dấu
                 HttpContext.Session.Remove("PaymentProcessed");
             }
             else
             {
-                // === LUỒNG 2: COD ===
-                // Đơn hàng chưa được xử lý. Phải làm tất cả công việc ngay bây giờ.
+                // === COD flow ===
                 if (addressId == null || addressId.Value == 0)
                 {
-                    logger.LogError("Lỗi luồng COD: Không tìm thấy AddressId trong Session.");
-                    return RedirectToAction("Checkout", "Cart"); // Quay lại checkout
+                    logger.LogError("COD flow error: Missing AddressId in Session.");
+                    return RedirectToAction("Checkout", "Cart");
                 }
 
-                // 1. Hoàn tất đơn hàng
                 completedOrder = await orderTableService.CompleteOrderAsync(userId.Value, addressId.Value, "COD");
                 if (completedOrder == null)
                 {
-                    logger.LogWarning("Lỗi luồng COD: Không tìm thấy đơn 'Unpaid' cho User {UserId}", userId);
-                    return RedirectToAction("Index", "Home"); // Về trang chủ
+                    logger.LogWarning("COD flow error: No unpaid order found for User {UserId}", userId);
+                    return RedirectToAction("Index", "Home");
                 }
 
-                // 2. Tạo vận đơn
                 try
                 {
                     await orderTableService.CreateShipmentForOrderAsync(completedOrder.Id);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Lỗi tạo vận đơn cho đơn COD {OrderId}", completedOrder.Id);
-                    // Không chặn người dùng, chỉ ghi log
+                    logger.LogError(ex, "Failed to create shipment for COD order {OrderId}", completedOrder.Id);
                 }
-                paymentMethodForEmail = "Thanh toán khi nhận hàng (COD)";
+
+                paymentMethodForEmail = "Cash on Delivery (COD)";
             }
 
-            // === LOGIC CHUNG (Gửi Mail & Dọn dẹp Session) ===
-
-            // Lấy thông tin từ Session (do cả 2 luồng đều cần)
+            // === Shared logic: Send confirmation email ===
             var total = HttpContext.Session.GetString("Total") ?? "0";
             var fullName = HttpContext.Session.GetString("FullName") ?? user.Username;
             var email = user.Email;
 
-            string subject = $"[CloneEbay] Xác nhận đơn hàng – Mã #{completedOrder.Id}";
+            string subject = $"[CloneEbay] Order Confirmation – Order #{completedOrder.Id}";
             string body = $@"
-                                <h2>Cảm ơn {fullName} đã đặt hàng!</h2>
-                                <p>Đơn hàng của bạn (mã #{completedOrder.Id}) đã được xác nhận.</p>
-                                <p><b>Tổng tiền:</b> {total} ₫</p> 
-                                <p>Phương thức thanh toán: {paymentMethodForEmail}</p>
-                                <p>Chúng tôi sẽ liên hệ sớm để giao hàng.</p>
-                                <hr/>
-                                <p>CloneEbay Team</p>
-                            ";
+                <h2>Thank you, {fullName}!</h2>
+                <p>Your order <b>#{completedOrder.Id}</b> has been successfully confirmed.</p>
+                <p><b>Total:</b> {total} USD</p>
+                <p><b>Payment Method:</b> {paymentMethodForEmail}</p>
+                <p>We will contact you soon to ship your order.</p>
+                <hr/>
+                <p>CloneEbay Team</p>
+            ";
 
             await _emailService.SendEmailAsync(email, subject, body);
 
-            // Dọn dẹp tất cả Session
-            HttpContext.Session.Remove("UserCart");
-            HttpContext.Session.Remove("AddressId");
-            HttpContext.Session.Remove("Total");
-            HttpContext.Session.Remove("Subtotal");
-            HttpContext.Session.Remove("Discount");
-            HttpContext.Session.Remove("Coupon");
-            HttpContext.Session.Remove("FullName"); // Xóa hết...
+            // Clear all session data
+            HttpContext.Session.Clear();
 
-            // Trả về View "Cảm ơn", truyền OrderId sang
             ViewBag.OrderId = completedOrder.Id;
+            ViewBag.PaymentMethod = paymentMethodForEmail;
+
             return View();
         }
 
+        // ✅ Order history
         [HttpGet("OrderHistory")]
         public async Task<IActionResult> OrderHistory(
-            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService) // Inject
+            [FromServices] IOrderTableService orderTableService)
         {
-            // Lấy userId của người đang đăng nhập
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdClaim))
                 return RedirectToAction("Login", "User");
 
             int userId = int.Parse(userIdClaim);
-
-            // Gọi service để lấy lịch sử
             var orders = await orderTableService.GetOrderHistoryAsync(userId);
 
-            return View(orders); // Truyền danh sách order vào View
+            return View(orders);
         }
 
+        // ✅ Order tracking + status sync
         [HttpGet("OrderTracking/{id}")]
         public async Task<IActionResult> OrderTracking(int id,
-            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService)
+            [FromServices] IOrderTableService orderTableService)
         {
             var order = await orderTableService.GetOrderDetailsAsync(id);
 
             if (order == null || order.ShippingInfos == null)
             {
-                ViewBag.ErrorMessage = "Không tìm thấy thông tin vận chuyển cho đơn hàng này.";
+                ViewBag.ErrorMessage = "No shipping information found for this order.";
                 return View("OrderTrackingError");
             }
 
@@ -237,11 +221,80 @@ namespace PaymentModule.Web.Controllers
         [HttpPost("SyncStatus/{id}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SyncShippingStatus(int id,
-            [FromServices] PaymentModule.Business.Abstractions.IOrderTableService orderTableService)
+            [FromServices] IOrderTableService orderTableService)
         {
             await orderTableService.SyncShipmentStatusAsync(id);
+            return RedirectToAction("OrderTracking", new { id });
+        }
 
-            return RedirectToAction("OrderTracking", new { id = id });
+        // ✅ Popup API: Get all addresses of current user
+        [HttpGet("GetAddresses")]
+        public IActionResult GetAddresses()
+        {
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Unauthorized();
+
+            var addresses = _context.Addresses
+                .Where(a => a.UserId == userId.Value)
+                .Select(a => new
+                {
+                    a.Id,
+                    a.FullName,
+                    a.Street,
+                    a.City,
+                    a.State,
+                    a.Country,
+                    a.Phone
+                })
+                .ToList();
+
+            return Json(addresses);
+        }
+
+        // ✅ Popup API: Add new address
+        [HttpPost("SaveAddress")]
+        public async Task<IActionResult> SaveAddress([FromBody] Address model)
+        {
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Unauthorized();
+
+            if (string.IsNullOrEmpty(model.FullName) || string.IsNullOrEmpty(model.Street))
+                return BadRequest("Invalid address details.");
+
+            model.UserId = userId.Value;
+            model.IsDefault = false;
+
+            _context.Addresses.Add(model);
+            await _context.SaveChangesAsync();
+
+            HttpContext.Session.SetInt32("AddressId", model.Id);
+            HttpContext.Session.SetString("AddressDisplay",
+                $"{model.FullName}, {model.Street}, {model.City}, {model.Country}");
+
+            return Ok(new { success = true, addressId = model.Id });
+        }
+
+        // ✅ Popup API: Change existing address (from popup)
+        [HttpPost("ChangeAddress")]
+        public IActionResult ChangeAddress([FromBody] int selectedAddressId)
+        {
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Unauthorized();
+
+            var address = _context.Addresses
+                .FirstOrDefault(a => a.Id == selectedAddressId && a.UserId == userId.Value);
+
+            if (address == null)
+                return BadRequest("Address not found.");
+
+            HttpContext.Session.SetInt32("AddressId", address.Id);
+            HttpContext.Session.SetString("AddressDisplay",
+                $"{address.FullName}, {address.Street}, {address.City}, {address.Country}");
+
+            return Ok(new { success = true });
         }
     }
 }

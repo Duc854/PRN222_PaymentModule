@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Checkout";
     Layout = "~/Views/Shared/_Layout.cshtml";
+    var currentAddressId = Context.Session.GetInt32("AddressId") ?? 0;
 }
 
 <section class="checkout-page">
@@ -10,8 +11,9 @@
         <div class="checkout-left">
             <h2 class="checkout-title">Checkout</h2>
 
+            <!-- Payment Method -->
             <div class="checkout-section">
-                <h3>Pay with</h3>
+                <h3>Payment Method</h3>
                 <div class="payment-options">
                     <label class="payment-option">
                         <input type="radio" name="payment" value="PayPal" />
@@ -21,126 +23,109 @@
                     <label class="payment-option">
                         <input type="radio" name="payment" value="COD" checked />
                         <img src="https://cdn-icons-png.flaticon.com/512/1041/1041873.png" alt="COD" class="payment-logo" />
-                        <span>Thanh toán khi nhận hàng (COD)</span>
+                        <span>Cash on Delivery (COD)</span>
                     </label>
                 </div>
             </div>
 
+            <!-- Shipping Address -->
             <div class="checkout-section">
-                <h3>Ship to</h3>
-                @if (ViewBag.AddressList != null && ViewBag.AddressList.Count > 0)
-                {
-                    <select id="addressSelect" class="form-control" style="width: 100%; padding: 8px; border-radius: 5px; font-size: 16px;">
-                        @foreach (var addr in (List<Address>)ViewBag.AddressList)
-                        {
-                            <option value="@addr.Id"
-                                    data-full-name="@addr.FullName"
-                                    data-street="@addr.Street"
-                                    data-city="@addr.City"
-                                    data-state="@addr.State"
-                                    data-country="@addr.Country"
-                                    data-phone="@addr.Phone">
-                                @addr.FullName - @addr.Street, @addr.City
-                            </option>
-                        }
-                    </select>
-                }
-                else
-                {
-                    <p class="no-address">⚠️ Bạn chưa có địa chỉ giao hàng</p>
-                }
-                <button type="button" class="btn-add-address" id="btnAddAddress" style="margin-top: 10px;">+ Add new address</button>
+                <h3>Shipping Address</h3>
+                <p id="selectedAddressText" style="margin-bottom: 10px; color: #333;">
+                    @(ViewBag.AddressDisplay ?? "No address selected.")
+                </p>
+                <button type="button" class="btn-add-address" id="btnChangeAddress">Change / Add Address</button>
             </div>
 
+            <!-- Coupon -->
             <div class="checkout-section">
-                <h3>Mã giảm giá</h3>
+                <h3>Discount Code</h3>
                 <select id="couponSelect" class="coupon-select" style="padding: 8px; border-radius: 5px;">
-                    <option value="">-- Chọn mã giảm giá --</option>
-                    <option value="10">Giảm 10% (fake)</option>
-                    <option value="20">Giảm 20% (fake)</option>
+                    <option value="">-- Select a discount --</option>
+                    <option value="10">10% OFF (demo)</option>
+                    <option value="20">20% OFF (demo)</option>
                 </select>
-                <button class="btn-apply-coupon" id="btnApplyCoupon">Áp dụng</button>
+                <button type="button" class="btn-apply-coupon" id="btnApplyCoupon">Apply</button>
                 <p id="couponMsg" class="coupon-msg"></p>
             </div>
 
+            <!-- Review Items -->
             <div class="checkout-section">
-                <h3>Review items</h3>
+                <h3>Review Items</h3>
                 @foreach (var item in Model.Items)
                 {
                     <div class="checkout-item">
                         <img src="@item.Images" alt="@item.Title" class="checkout-item-img" />
                         <div class="checkout-item-info">
                             <p class="checkout-item-title">@item.Title</p>
-                            <p>Qty: @item.Quantity × @item.Price.ToString("N0") ₫</p>
-                            <p><strong>@item.TotalPrice.ToString("N0") ₫</strong></p>
+                            <p>Qty: @item.Quantity × $@item.Price.ToString("N2")</p>
+                            <p><strong>$@item.TotalPrice.ToString("N2")</strong></p>
                         </div>
                     </div>
                 }
             </div>
         </div>
 
+        <!-- Order Summary -->
         <div class="checkout-right">
             <div class="order-summary">
                 <h4>Order Summary</h4>
                 <p>Items: <strong>@Model.Items.Count</strong></p>
-                <p>Tiền hàng: <span id="subtotal" data-value="@Model.TotalPrice">@Model.TotalPrice.ToString("N0")</span> ₫</p>
-                <p>Phí vận chuyển: <span id="shippingCost" data-value="0">Đang tính...</span></p>
-                <p>Giảm giá: <span id="discountAmount" data-value="0">0 ₫</span></p>
+                <p>Subtotal: <span id="subtotal" data-value="@Model.TotalPrice">$@Model.TotalPrice.ToString("N2")</span></p>
+                <p>Shipping Fee: <span id="shippingCost" data-value="0">Calculating...</span></p>
+                <p>Discount: <span id="discountAmount" data-value="0">$0.00</span></p>
                 <hr />
-                <p><strong>Tổng tiền: <span id="orderTotal" data-value="@Model.TotalPrice">@Model.TotalPrice.ToString("N0")</span></strong></p>
-                <button type="button" class="btn-confirm-pay" id="btnConfirmPay" disabled>Confirm and pay</button>
+                <p><strong>Total: <span id="orderTotal" data-value="@Model.TotalPrice">$@Model.TotalPrice.ToString("N2")</span></strong></p>
+                <button type="button" class="btn-confirm-pay" id="btnConfirmPay">Confirm and Pay</button>
             </div>
         </div>
     </div>
 </section>
 
+<!-- Change / Add Address Modal -->
 <div id="addressModal" class="modal-overlay">
     <div class="modal-box">
-        <h3>Add new address</h3>
+        <h3>Select or Add Address</h3>
+        <div id="addressList" class="address-list"><p>Loading addresses...</p></div>
+        <hr />
+        <h4>Add New Address</h4>
         <form id="addressForm">
-            <label>Full Name</label><input type="text" name="fullName" required />
-            <label>Street Address</label><input type="text" name="street" required />
-            <label>City</label><input type="text" name="city" required />
-            <label>State</label><input type="text" name="state" required />
-            <label>Country</label><input type="text" name="country" required />
-            <label>Phone</label><input type="text" name="phone" required />
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" id="closeModal">Cancel</button>
-                <button type="submit" class="btn-save">Save</button>
-            </div>
+            <input type="text" name="FullName" placeholder="Full Name" required />
+            <input type="text" name="Street" placeholder="Street" required />
+            <input type="text" name="City" placeholder="City" required />
+            <input type="text" name="State" placeholder="State" />
+            <input type="text" name="Country" placeholder="Country" required />
+            <input type="text" name="Phone" placeholder="Phone" required />
+            <button type="submit" class="btn-save">Save Address</button>
         </form>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" id="closeModal">Close</button>
+        </div>
     </div>
 </div>
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {
-        // === KHAI BÁO BIẾN ===
         const modal = document.getElementById("addressModal");
-        const btnAdd = document.getElementById("btnAddAddress");
+        const btnChange = document.getElementById("btnChangeAddress");
         const closeBtn = document.getElementById("closeModal");
+        const listContainer = document.getElementById("addressList");
         const form = document.getElementById("addressForm");
-        const confirmBtn = document.getElementById("btnConfirmPay");
-        const addressSelect = document.getElementById("addressSelect"); // Biến chính
-
+        const selectedText = document.getElementById("selectedAddressText");
         const subtotalEl = document.getElementById("subtotal");
         const shippingEl = document.getElementById("shippingCost");
         const discountEl = document.getElementById("discountAmount");
         const totalEl = document.getElementById("orderTotal");
+        const confirmBtn = document.getElementById("btnConfirmPay");
+        const currentAddressId = parseInt('@currentAddressId') || 0;
 
-        // Kiểm tra xem có địa chỉ nào không
-        let hasAddress = addressSelect != null && addressSelect.options.length > 0;
-        if (hasAddress) {
-            confirmBtn.disabled = false;
-        } else {
-            confirmBtn.disabled = true;
-        }
-
-        // === HÀM HELPER ===
+        // ==== USD formatter ====
         function formatCurrency(num) {
-            return parseFloat(num).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            const n = parseFloat(num) || 0;
+            return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
         }
 
-        // Hàm cập nhật tổng tiền
+        // ==== Update summary ====
         function updateSummary() {
             const subtotal = parseFloat(subtotalEl.dataset.value) || 0;
             const shipping = parseFloat(shippingEl.dataset.value) || 0;
@@ -150,147 +135,183 @@
             shippingEl.textContent = formatCurrency(shipping);
             discountEl.textContent = formatCurrency(discount);
             totalEl.textContent = formatCurrency(total);
-            confirmBtn.textContent = `Confirm and pay ${formatCurrency(total)}`;
+            confirmBtn.textContent = `Confirm and Pay (${formatCurrency(total)})`;
         }
 
-        // Hàm gọi API tính phí (DÙNG addressId)
+        // ==== Fetch shipping fee ====
         async function fetchShippingFee(addressId) {
-            shippingEl.textContent = "Đang tính...";
+            if (!addressId) return;
+            shippingEl.textContent = "Calculating...";
             try {
-                const response = await fetch(`/cart/api/calculate-shipping?addressId=${addressId}`);
-                if (!response.ok) throw new Error("Failed to fetch shipping fee");
-
-                const data = await response.json();
-                shippingEl.dataset.value = data.fee;
-            } catch (error) {
-                console.error("Lỗi tính phí ship:", error);
-                shippingEl.dataset.value = 50000; // Phí mặc định nếu lỗi API
+                const res = await fetch(`/cart/api/calculate-shipping?addressId=${addressId}`);
+                if (!res.ok) throw new Error("API error");
+                const data = await res.json();
+                shippingEl.dataset.value = data.fee || 0;
+            } catch (err) {
+                console.error("Shipping fee error:", err);
+                shippingEl.dataset.value = 2.00;
             }
             updateSummary();
         }
 
-        // === EVENT LISTENERS ===
+        // ==== Load addresses (popup) ====
+        async function loadAddresses() {
+            listContainer.innerHTML = "<p>Loading...</p>";
+            const res = await fetch("/order/GetAddresses");
+            const data = await res.json();
 
-        // 1. Lắng nghe sự kiện thay đổi địa chỉ
-        addressSelect?.addEventListener('change', () => {
-            const selectedAddressId = addressSelect.value;
-            fetchShippingFee(selectedAddressId);
+            if (!data.length) {
+                listContainer.innerHTML = "<p>No address found. Please add a new one below.</p>";
+                return;
+            }
+
+            listContainer.innerHTML = "";
+            data.forEach(a => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "btn-address-option";
+                btn.textContent = `${a.fullName} — ${a.street}, ${a.city}, ${a.country}`;
+                btn.onclick = () => selectAddress(a);
+                listContainer.appendChild(btn);
+            });
+        }
+
+        // ==== Select address ====
+        async function selectAddress(addr) {
+            const res = await fetch("/order/ChangeAddress", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(addr.id)
+            });
+            if (res.ok) {
+                selectedText.textContent = `${addr.fullName}, ${addr.street}, ${addr.city}, ${addr.country}`;
+                modal.classList.remove("show");
+                await fetchShippingFee(addr.id);
+            } else {
+                alert("❌ Failed to change address.");
+            }
+        }
+
+        // ==== Add new address ====
+        form.addEventListener("submit", async e => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(form).entries());
+            const res = await fetch("/order/SaveAddress", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                alert("✅ New address added!");
+                form.reset();
+                await loadAddresses();
+            } else {
+                alert("❌ Failed to add address.");
+            }
         });
 
-        // 2. Logic Áp dụng Coupon
+        // ==== Coupon logic (fixed) ====
         const couponSelect = document.getElementById("couponSelect");
         const applyBtn = document.getElementById("btnApplyCoupon");
         const msg = document.getElementById("couponMsg");
-        let couponUsed = false;
 
         applyBtn.addEventListener("click", () => {
-            if (couponUsed) {
-                msg.textContent = "❌ Bạn đã áp dụng mã rồi!";
-                msg.style.color = "red";
-                return;
-            }
             const coupon = couponSelect.value;
             const subtotal = parseFloat(subtotalEl.dataset.value);
             let discount = 0;
-            if (coupon === "10") {
-                discount = subtotal * 0.1;
-                msg.textContent = "✔️ Đã áp dụng mã giảm 10%";
-            } else if (coupon === "20") {
-                discount = subtotal * 0.2;
-                msg.textContent = "✔️ Đã áp dụng mã giảm 20%";
-            } else {
-                msg.textContent = "❌ Vui lòng chọn mã hợp lệ";
+
+            if (!coupon) {
+                msg.textContent = "❌ Please select a discount code!";
                 msg.style.color = "red";
                 return;
             }
 
-            couponUsed = true;
-            discountEl.dataset.value = discount; // Cập nhật data-value
-            couponSelect.disabled = true;
-            applyBtn.disabled = true;
-            msg.style.color = "#0654ba";
-
-            updateSummary(); // Gọi hàm update tổng tiền
-        });
-
-        // 3. Logic Confirm Pay (Đã sửa)
-        confirmBtn.addEventListener("click", () => {
-            if (!hasAddress || !addressSelect) {
-                alert("⚠️ Bạn cần chọn địa chỉ giao hàng!");
+            if (coupon === "10") {
+                discount = subtotal * 0.1;
+                msg.textContent = "✔️ 10% discount applied!";
+            } else if (coupon === "20") {
+                discount = subtotal * 0.2;
+                msg.textContent = "✔️ 20% discount applied!";
+            } else {
+                msg.textContent = "❌ Invalid code!";
+                msg.style.color = "red";
                 return;
             }
 
-            // Lấy dữ liệu từ các element
-            const subtotal = parseFloat(subtotalEl.dataset.value);
-            const shipping = parseFloat(shippingEl.dataset.value);
-            const discount = parseFloat(discountEl.dataset.value);
-            const total = subtotal + shipping - discount;
-            const coupon = couponSelect.value;
+            discountEl.dataset.value = discount;
+            msg.style.color = "#0654ba";
+            updateSummary();
+        });
+        // ==== Confirm and Pay (fixed) ====
+confirmBtn.addEventListener("click", async () => {
+    const subtotal = parseFloat(subtotalEl.dataset.value) || 0;
+    const shipping = parseFloat(shippingEl.dataset.value) || 0;
+    const discount = parseFloat(discountEl.dataset.value) || 0;
+    const total = subtotal + shipping - discount;
+    const coupon = document.getElementById("couponSelect").value;
+    const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
 
-            // Lấy thông tin từ <select>
-            const selectedOption = addressSelect.options[addressSelect.selectedIndex];
-            const addressId = parseInt(selectedOption.value);
+    if (!selectedText.textContent || selectedText.textContent === "No address selected.") {
+        alert("⚠️ Please select a shipping address before proceeding.");
+        return;
+    }
 
-            // Lấy thông tin chi tiết từ data-* attributes
-            const addressDetails = {
-                fullName: selectedOption.dataset.fullName,
-                street: selectedOption.dataset.street,
-                cityLine: `${selectedOption.dataset.city}, ${selectedOption.dataset.state}`,
-                country: selectedOption.dataset.country,
-                phone: selectedOption.dataset.phone
-            };
+    // Fetch current address ID (from session or popup)
+    const response = await fetch("/order/GetAddresses");
+    const addresses = await response.json();
+    const matched = addresses.find(a => selectedText.textContent.includes(a.street));
+    const addressId = matched ? matched.id : 0;
 
-            const paymentMethod = document.querySelector('input[name="payment"]:checked').value; // Lấy từ 'value'
+    const payload = {
+        subtotal,
+        shipping,
+        discount,
+        total,
+        coupon,
+        paymentMethod,
+        addressId,
+        address: {
+            fullName: selectedText.textContent.split(",")[0] || "Unknown",
+            street: selectedText.textContent,
+            cityLine: "",
+            country: "",
+            phone: ""
+        }
+    };
 
-            // Gửi JSON về server
-            fetch("/order/ConfirmFromCheckout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    subtotal,
-                    shipping,
-                    discount,
-                    total,
-                    coupon,
-                    paymentMethod,
-                    addressId: addressId, // Gửi ID
-                    address: addressDetails // Gửi chi tiết để trang sau hiển thị
-                })
-            }).then(response => {
-                if (response.ok) {
-                    window.location.href = "/order/confirm";
-                } else {
-                    alert("Có lỗi xảy ra, không thể xác nhận đơn hàng.");
-                }
-            });
+    try {
+        const res = await fetch("/order/ConfirmFromCheckout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
         });
 
-        // 4. Logic Popup (Giữ nguyên)
-        btnAdd?.addEventListener("click", () => modal.classList.add("show"));
-        closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
+        if (res.ok) {
+            window.location.href = "/order/confirm";
+        } else {
+            alert("❌ Failed to confirm payment. Please try again.");
+        }
+    } catch (err) {
+        console.error("Payment confirm error:", err);
+        alert("⚠️ Something went wrong. Please try again later.");
+    }
+});
+
+        // ==== Popup logic ====
+        btnChange.addEventListener("click", () => {
+            modal.classList.add("show");
+            loadAddresses();
+        });
+        closeBtn.addEventListener("click", () => modal.classList.remove("show"));
         window.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); });
 
-        // (Logic 'form.addEventListener("submit", ...)' đã bị xóa
-        // vì nó bị lỗi và tham chiếu đến các element không còn tồn tại.
-        // Bạn cần implement logic POST địa chỉ mới về server
-        // và reload trang ở đây.)
-
-        // === KHỞI CHẠY LẦN ĐẦU ===
-        if (hasAddress) {
-            // Lấy ID của địa chỉ đang được chọn
-            const initialAddressId = addressSelect.value;
-            fetchShippingFee(initialAddressId);
-        } else {
-            // Không có địa chỉ, không có gì để tính
-            shippingEl.textContent = formatCurrency(0);
-            updateSummary();
-        }
+        // ==== Init ====
+        if (currentAddressId) fetchShippingFee(currentAddressId);
+        else updateSummary();
     });
 </script>
 
-
 <style>
-    /* CSS CỦA BẠN (GIỮ NGUYÊN) */
     .checkout-container {
         display: flex;
         justify-content: space-between;
@@ -329,13 +350,6 @@
         object-fit: cover;
     }
 
-    .payment-logo {
-        width: 30px;
-        height: 30px;
-        margin-right: 8px;
-    }
-
-    /* (Thêm) Căn chỉnh label thanh toán */
     .payment-option {
         display: flex;
         align-items: center;
@@ -358,16 +372,12 @@
         border-radius: 30px;
         cursor: pointer;
         font-weight: 600;
+        pointer-events: auto;
     }
 
         .btn-apply-coupon:hover, .btn-confirm-pay:hover {
             background: #0654ba;
         }
-
-    .no-address {
-        color: #c00;
-        font-weight: 500;
-    }
 
     .modal-overlay {
         display: none;
@@ -379,7 +389,7 @@
         background: rgba(0,0,0,0.5);
         justify-content: center;
         align-items: center;
-        z-index: 1000; /* Thêm z-index */
+        z-index: 1000;
     }
 
         .modal-overlay.show {
@@ -391,29 +401,35 @@
         padding: 20px;
         border-radius: 10px;
         width: 400px;
+        max-height: 90vh;
+        overflow: auto;
     }
 
-        /* (Thêm) CSS cho form trong Modal */
-        .modal-box label {
-            display: block;
-            margin-top: 10px;
-            font-weight: 600;
-        }
-
-        .modal-box input[type="text"] {
+        .modal-box input {
             width: 100%;
             padding: 8px;
+            margin: 4px 0;
             border: 1px solid #ccc;
             border-radius: 5px;
-            box-sizing: border-box; /* Thêm */
         }
 
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 20px;
+    .btn-address-option {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background: #fff;
+        cursor: pointer;
+        transition: all 0.2s;
     }
+
+        .btn-address-option:hover {
+            background: #e9f2ff;
+            border-color: #0064d2;
+        }
 
     .btn-cancel, .btn-save {
         padding: 8px 16px;
@@ -429,5 +445,6 @@
     .btn-save {
         background: #0064d2;
         color: white;
+        margin-top: 10px;
     }
 </style>

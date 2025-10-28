@@ -230,9 +230,6 @@ namespace PaymentModule.Web.Controllers
             });
         }
 
-        // =======================
-        // 💳 VIEW: Checkout
-        // =======================
         [HttpGet("checkout")]
         public async Task<IActionResult> Checkout()
         {
@@ -241,20 +238,46 @@ namespace PaymentModule.Web.Controllers
                 return RedirectToAction("Login", "Account");
 
             int userId = int.Parse(userIdClaim);
-            var result = await _orderTableService.GetCartByUserId(new UserCartInputDto { UserId = userId });
-            var user = await _userService.GetNavbarInfoAsync(new UserNavbarInputDto { UserId = userId });
+            var result = await _orderTableService.GetCartByUserId(
+                new UserCartInputDto { UserId = userId });
 
-            if (result?.Items != null)
-                result.TotalPrice = result.Items.Sum(i => i.TotalPrice);
+            // 🔹 Đọc danh sách item được chọn từ Session
+            var selectedJson = HttpContext.Session.GetString("SelectedItems");
+            List<int> selectedIds = new();
+            if (!string.IsNullOrEmpty(selectedJson))
+            {
+                selectedIds = JsonSerializer.Deserialize<List<int>>(selectedJson);
+            }
 
+            // 🔹 Nếu có danh sách chọn, lọc lại Items
+            if (selectedIds?.Any() == true && result?.Items != null)
+            {
+                result.Items = result.Items
+                    .Where(i => selectedIds.Contains(i.OrderItemId))
+                    .ToList();
+            }
+
+            // 🔹 Tính lại tổng giá
+            result.TotalPrice = result.Items?.Sum(i => i.TotalPrice) ?? 0m;
+
+            // 🔹 Lưu Session lại nếu cần
             var cartJson = JsonSerializer.Serialize(result);
             HttpContext.Session.SetString("UserCart", cartJson);
             HttpContext.Session.SetInt32("UserId", userId);
 
+            // 🔹 Lấy thông tin user + địa chỉ
+            var user = await _userService.GetNavbarInfoAsync(new UserNavbarInputDto { UserId = userId });
             ViewBag.UserName = user.Username;
             ViewBag.AddressList = await _addressService.GetAddressesByUserId(userId);
 
             return View(result);
+        }
+
+        [HttpPost("SetSelectedItems")]
+        public IActionResult SetSelectedItems([FromBody] List<int> selectedIds)
+        {
+            HttpContext.Session.SetString("SelectedItems", JsonSerializer.Serialize(selectedIds));
+            return Ok(new { success = true });
         }
 
         [HttpGet("Success")]
