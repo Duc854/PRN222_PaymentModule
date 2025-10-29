@@ -17,52 +17,41 @@ namespace PaymentModule.Web
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Đọc PayPal section
+            // === PayPal settings ===
             var paypalSettings = builder.Configuration.GetSection("PayPal");
-
-            string clientId = paypalSettings["ClientId"];
-            string clientSecret = paypalSettings["ClientSecret"];
-            string mode = paypalSettings["Mode"];
-            string returnUrl = paypalSettings["ReturnUrl"];
-            string cancelUrl = paypalSettings["CancelUrl"];
             builder.Services.AddScoped<PayPalService>();
 
-            // 1️⃣ Add MVC
+            // 1️⃣ MVC + Infrastructure
             builder.Services.AddControllersWithViews();
-            // 2️⃣ Add infrastructure (DbContext, Repository, Service)
             builder.Services.AddInfrastructure(builder.Configuration);
 
-            // Add distributed SQL Server cache for sessions
-            builder.Services.AddDistributedSqlServerCache(options =>
-            {
-                options.ConnectionString = builder.Configuration.GetConnectionString("SQLServerConnection");
-                options.SchemaName = "dbo";
-                options.TableName = "SessionCache";
-            });
-            // 3️⃣ Add Session
+            // ✅ Dùng In-Memory cache thay vì SQL (để tránh lỗi khi không có bảng SessionCache)
+            builder.Services.AddDistributedMemoryCache();
+
+            // ✅ Cấu hình Session
             builder.Services.AddSession(options =>
             {
                 options.IdleTimeout = TimeSpan.FromMinutes(30);
                 options.Cookie.HttpOnly = true;
                 options.Cookie.IsEssential = true;
-                options.Cookie.SameSite = SameSiteMode.None;
+                options.Cookie.SameSite = SameSiteMode.Lax; // Lax để tránh lỗi cross-site khi deploy
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
             });
 
-
-
+            // ✅ Cookie policy
             builder.Services.Configure<CookiePolicyOptions>(options =>
             {
-                options.MinimumSameSitePolicy = SameSiteMode.None;
-                // Khi SameSite=None, bắt buộc phải dùng Secure (HTTPS)
-                options.Secure = CookieSecurePolicy.Always;
+                options.MinimumSameSitePolicy = SameSiteMode.Lax;
+                options.Secure = CookieSecurePolicy.SameAsRequest;
             });
 
-            // 4️⃣ Fix Data Protection Key (để không lỗi payload invalid)
+            // ✅ Data Protection Key (để mã hóa cookie ổn định)
             builder.Services.AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "DataProtectionKeys")))
+                .PersistKeysToFileSystem(new DirectoryInfo(
+                    Path.Combine(Directory.GetCurrentDirectory(), "DataProtectionKeys")))
                 .SetApplicationName("PaymentModuleWeb");
 
-            // 5️⃣ Cookie Authentication
+            // ✅ Cookie Authentication
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
@@ -74,7 +63,8 @@ namespace PaymentModule.Web
                     options.SlidingExpiration = true;
                     options.ExpireTimeSpan = TimeSpan.FromHours(2);
                 });
-            // Add user rate limiter
+
+            // ✅ Rate limiter (chống spam request)
             builder.Services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = 429;
@@ -94,11 +84,9 @@ namespace PaymentModule.Web
                 });
             });
 
-            
-
             var app = builder.Build();
 
-            // 6️⃣ Error handling
+            // === Middleware pipeline ===
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Home/Error");
@@ -107,26 +95,24 @@ namespace PaymentModule.Web
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
-
             app.UseRouting();
 
             app.UseCustomExceptionLogging();
-
             app.UseCookiePolicy();
 
-            // 7️⃣ Middlewares
+            // ✅ Phải đặt Session trước Authentication
             app.UseSession();
+
             app.UseAuthentication();
             app.UseRateLimiter();
             app.UseAuthorization();
 
-            // 8️⃣ Default route
+            // === Default route ===
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}");
 
             app.Run();
         }
-
     }
 }
