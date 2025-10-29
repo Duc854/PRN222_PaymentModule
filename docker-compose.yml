@@ -12,7 +12,7 @@ services:
       SA_PASSWORD: "YourStrong@Password"
       ACCEPT_EULA: "Y"
     ports:
-      - "127.0.0.1:1444:1433"          # expose port cho local test
+      - "127.0.0.1:1444:1433"    # expose port cho local test
     networks:
       - backend-net
     volumes:
@@ -34,13 +34,14 @@ services:
     networks:
       - backend-net
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
     ports:
       - "127.0.0.1:5101:8080"
     volumes:
-      - datakeys:/app/DataProtectionKeys   # share key cho session/cookie
+      - datakeys:/app/DataProtectionKeys      # chia sẻ khóa bảo mật
+      - shared-wwwroot:/app/wwwroot           # chia sẻ file upload (ảnh, video, vv)
     depends_on:
       mssql:
         condition: service_healthy
@@ -56,13 +57,14 @@ services:
     networks:
       - backend-net
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
     ports:
       - "127.0.0.1:5102:8080"
     volumes:
       - datakeys:/app/DataProtectionKeys
+      - shared-wwwroot:/app/wwwroot
     depends_on:
       mssql:
         condition: service_healthy
@@ -78,13 +80,14 @@ services:
     networks:
       - backend-net
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
     ports:
       - "127.0.0.1:5103:8080"
     volumes:
       - datakeys:/app/DataProtectionKeys
+      - shared-wwwroot:/app/wwwroot
     depends_on:
       mssql:
         condition: service_healthy
@@ -98,3 +101,4 @@ networks:
 volumes:
   mssql-data:
   datakeys:
+  shared-wwwroot:
