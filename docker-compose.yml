@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
 
   # =========================
@@ -10,7 +12,7 @@ services:
       SA_PASSWORD: "YourStrong@Password"
       ACCEPT_EULA: "Y"
     ports:
-      - "127.0.0.1:1444:1433"               # expose port cho local test
+      - "127.0.0.1:1444:1433"          # expose port cho local test
     networks:
       - backend-net
     volumes:
@@ -37,6 +39,8 @@ services:
       - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
     ports:
       - "127.0.0.1:5101:8080"
+    volumes:
+      - datakeys:/app/DataProtectionKeys   # share key cho session/cookie
     depends_on:
       mssql:
         condition: service_healthy
@@ -57,6 +61,8 @@ services:
       - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
     ports:
       - "127.0.0.1:5102:8080"
+    volumes:
+      - datakeys:/app/DataProtectionKeys
     depends_on:
       mssql:
         condition: service_healthy
@@ -77,15 +83,18 @@ services:
       - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
     ports:
       - "127.0.0.1:5103:8080"
+    volumes:
+      - datakeys:/app/DataProtectionKeys
     depends_on:
       mssql:
         condition: service_healthy
 
 # =========================
-# NETWORK & VOLUME
+# NETWORK & VOLUMES
 # =========================
 networks:
   backend-net:
 
 volumes:
   mssql-data:
+  datakeys:

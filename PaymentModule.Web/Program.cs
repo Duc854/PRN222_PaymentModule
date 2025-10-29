@@ -32,6 +32,13 @@ namespace PaymentModule.Web
             // 2️⃣ Add infrastructure (DbContext, Repository, Service)
             builder.Services.AddInfrastructure(builder.Configuration);
 
+            // Add distributed SQL Server cache for sessions
+            builder.Services.AddDistributedSqlServerCache(options =>
+            {
+                options.ConnectionString = builder.Configuration.GetConnectionString("SQLServerConnection");
+                options.SchemaName = "dbo";
+                options.TableName = "SessionCache";
+            });
             // 3️⃣ Add Session
             builder.Services.AddSession(options =>
             {
@@ -40,6 +47,8 @@ namespace PaymentModule.Web
                 options.Cookie.IsEssential = true;
                 options.Cookie.SameSite = SameSiteMode.None;
             });
+
+
 
             builder.Services.Configure<CookiePolicyOptions>(options =>
             {
@@ -84,6 +93,8 @@ namespace PaymentModule.Web
                         });
                 });
             });
+
+            
 
             var app = builder.Build();
 
