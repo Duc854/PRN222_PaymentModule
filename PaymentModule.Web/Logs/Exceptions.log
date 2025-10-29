@@ -1,1 +1,6 @@
 2025-10-29 00:13:04 [Error] ❗ Exception không xác định: An error occurred while saving the entity changes. See the inner exception for details. | Exception: An error occurred while saving the entity changes. See the inner exception for details.
+2025-10-29 12:48:53 [Error] ❗ Exception không xác định: The view 'Login' was not found. The following locations were searched:
+/Views/User/Login.cshtml
+/Views/Shared/Login.cshtml | Exception: The view 'Login' was not found. The following locations were searched:
+/Views/User/Login.cshtml
+/Views/Shared/Login.cshtml

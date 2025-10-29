@@ -25,8 +25,13 @@ namespace PaymentModule.Web
             builder.Services.AddControllersWithViews();
             builder.Services.AddInfrastructure(builder.Configuration);
 
-            // ✅ Dùng In-Memory cache thay vì SQL (để tránh lỗi khi không có bảng SessionCache)
-            builder.Services.AddDistributedMemoryCache();
+            // ✅ Dùng SQL Server cache cho session (chia sẻ giữa các container)
+            builder.Services.AddDistributedSqlServerCache(options =>
+            {
+                options.ConnectionString = builder.Configuration.GetConnectionString("SQLServerConnection");
+                options.SchemaName = "dbo";
+                options.TableName = "SessionCache";
+            });
 
             // ✅ Cấu hình Session
             builder.Services.AddSession(options =>
