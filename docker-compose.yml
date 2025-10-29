@@ -1,0 +1,91 @@
+services:
+
+  # =========================
+  # SQL SERVER CONTAINER
+  # =========================
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql-cloneebay
+    environment:
+      SA_PASSWORD: "YourStrong@Password"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "127.0.0.1:1444:1433"               # expose port cho local test
+    networks:
+      - backend-net
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "pidof sqlservr > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # =========================
+  # WEB APP CONTAINER 1
+  # =========================
+  web1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: payment-web1
+    networks:
+      - backend-net
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
+    ports:
+      - "127.0.0.1:5101:8080"
+    depends_on:
+      mssql:
+        condition: service_healthy
+
+  # =========================
+  # WEB APP CONTAINER 2
+  # =========================
+  web2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: payment-web2
+    networks:
+      - backend-net
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
+    ports:
+      - "127.0.0.1:5102:8080"
+    depends_on:
+      mssql:
+        condition: service_healthy
+
+  # =========================
+  # WEB APP CONTAINER 3
+  # =========================
+  web3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: payment-web3
+    networks:
+      - backend-net
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__SQLServerConnection=Server=mssql-cloneebay,1433;Database=CloneEbayDb;User Id=sa;Password=YourStrong@Password;TrustServerCertificate=True;MultipleActiveResultSets=True
+    ports:
+      - "127.0.0.1:5103:8080"
+    depends_on:
+      mssql:
+        condition: service_healthy
+
+# =========================
+# NETWORK & VOLUME
+# =========================
+networks:
+  backend-net:
+
+volumes:
+  mssql-data:
