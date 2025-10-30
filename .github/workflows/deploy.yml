@@ -9,23 +9,29 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout source
+      - name: Checkout latest source from GitHub
         uses: actions/checkout@v4
 
-      # ✅ Deploy bằng Docker Compose (chạy trực tiếp trên homelab)
-      - name: Rebuild & Restart Docker Containers
+      # ✅ Đồng bộ code mới nhất vào thư mục thật trên server
+      - name: Sync code to deployment folder
+        run: |
+          echo "📦 Syncing new source code..."
+          rsync -av --delete --exclude='.git' . /home/namph/PaymentModule/PRN222_PaymentModule/
+
+      # ✅ Rebuild & Restart containers
+      - name: Rebuild and Restart Docker containers
         run: |
           cd /home/namph/PaymentModule/PRN222_PaymentModule
           echo "🧹 Stopping old containers..."
           docker compose stop web1 web2 web3 || true
 
-          echo "🧩 Removing old containers (if exist)..."
+          echo "🧩 Removing old containers..."
           docker compose rm -f web1 web2 web3 || true
 
-          echo "🔨 Rebuilding Docker images from updated source..."
-          docker compose build web1 web2 web3
+          echo "🔨 Building new images (no cache)..."
+          docker compose build --no-cache web1 web2 web3
 
           echo "🚀 Starting updated containers..."
           docker compose up -d web1 web2 web3
 
-          echo "✅ Done! Database (mssql-cloneebay) untouched."
+          echo "✅ Deployment completed successfully!"
