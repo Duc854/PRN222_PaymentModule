@@ -7,27 +7,42 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # ✅ Cài .NET SDK vào thư mục home (không cần quyền root)
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+          install-dir: $HOME/.dotnet
 
+      # ✅ Build project ASP.NET Core
       - name: Build ASP.NET project
+        env:
+          DOTNET_ROOT: $HOME/.dotnet
+          PATH: $HOME/.dotnet:$PATH
         run: |
+          dotnet --version
           dotnet restore
           dotnet publish -c Release -o ./publish
 
+      # ✅ Deploy bằng Docker Compose
       - name: Deploy via Docker Compose
         run: |
           cd /home/namph/PaymentModule/PRN222_PaymentModule
-          echo "🧹 Stopping old containers..."
+          echo "🧹 Stopping old web containers..."
           docker compose stop web1 web2 web3 || true
+
+          echo "🧩 Removing old containers (if exist)..."
+          docker compose rm -f web1 web2 web3 || true
+
           echo "🔨 Rebuilding web images..."
           docker compose build web1 web2 web3
+
           echo "🚀 Starting updated containers..."
           docker compose up -d web1 web2 web3
-          echo "✅ Deployment complete!"
+
+          echo "✅ Deployment complete! Database (mssql-cloneebay) untouched."
