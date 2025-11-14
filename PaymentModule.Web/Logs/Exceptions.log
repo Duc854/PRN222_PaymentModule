@@ -4,3 +4,20 @@
 /Views/Shared/Login.cshtml | Exception: The view 'Login' was not found. The following locations were searched:
 /Views/User/Login.cshtml
 /Views/Shared/Login.cshtml
+2025-11-03 11:14:53 [Error] ❗ Exception không xác định: Connection Timeout Expired.  The timeout period elapsed while attempting to consume the pre-login handshake acknowledgement.  This could be because the pre-login handshake failed or the server was unable to respond back in time.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=21; handshake=14992;  | Exception: Connection Timeout Expired.  The timeout period elapsed while attempting to consume the pre-login handshake acknowledgement.  This could be because the pre-login handshake failed or the server was unable to respond back in time.  The duration spent while attempting to connect to this server was - [Pre-Login] initialization=21; handshake=14992; 
+2025-11-03 11:43:48 [Error] ❗ Exception không xác định: The view 'Login' was not found. The following locations were searched:
+/Views/User/Login.cshtml
+/Views/Shared/Login.cshtml | Exception: The view 'Login' was not found. The following locations were searched:
+/Views/User/Login.cshtml
+/Views/Shared/Login.cshtml
+2025-11-12 20:00:24 [Error] ❗ Exception không xác định: Invalid column name 'Notes'.
+Invalid column name 'ReroutedOnce'. | Exception: Invalid column name 'Notes'.
+Invalid column name 'ReroutedOnce'.
+2025-11-12 20:11:44 [Error] ❗ Exception không xác định: Data is Null. This method or property cannot be called on Null values. | Exception: Data is Null. This method or property cannot be called on Null values.
+2025-11-13 10:24:40 [Error] ❗ Exception không xác định: Data is Null. This method or property cannot be called on Null values. | Exception: Data is Null. This method or property cannot be called on Null values.
+2025-11-13 10:26:49 [Error] ❗ Exception không xác định: Data is Null. This method or property cannot be called on Null values. | Exception: Data is Null. This method or property cannot be called on Null values.
+2025-11-13 13:59:59 [Error] ❗ Exception không xác định: The view 'Login' was not found. The following locations were searched:
+/Views/User/Login.cshtml
+/Views/Shared/Login.cshtml | Exception: The view 'Login' was not found. The following locations were searched:
+/Views/User/Login.cshtml
+/Views/Shared/Login.cshtml

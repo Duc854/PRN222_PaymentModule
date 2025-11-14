@@ -1,6 +1,9 @@
+using System;
+using System.Threading.Tasks;
+
 namespace PaymentModule.Business.Abstraction
 {
-    // DTO cho response khi tạo vận đơn
+    // DTO này giữ nguyên
     public class CreateShipmentResponseDto
     {
         public bool Success { get; set; }
@@ -11,25 +14,32 @@ namespace PaymentModule.Business.Abstraction
         public string Message { get; set; }
     }
 
-    // DTO cho response khi cập nhật trạng thái
-    public class ShipmentStatusUpdateDto
+    // === DTO MỚI (Cho Reroute) ===
+    public class RerouteResponseDto
     {
         public bool Success { get; set; }
-        public string NewStatus { get; set; }
-        public DateTime? EstimatedArrival { get; set; }
         public string Message { get; set; }
+        public string NewStatus { get; set; }
     }
+
+    // === DTO CŨ (Bị xóa) ===
+    // public class ShipmentStatusUpdateDto { ... }
 
     public interface IShippingService
     {
         /// <summary>
         /// Gọi API sandbox để tạo mã vận đơn (trackingNumber)
+        /// (Hàm này cũng sẽ kích hoạt tiến trình Webhook giả lập)
         /// </summary>
         Task<CreateShipmentResponseDto> CreateShipmentAsync(int orderId, string buyerName, string fullAddress);
 
         /// <summary>
-        /// Gọi API sandbox để kiểm tra và cập nhật trạng thái
+        /// (Hàm mới) Được gọi từ "Cổng ĐVVC" để mô phỏng yêu cầu Reroute.
         /// </summary>
-        Task<ShipmentStatusUpdateDto> GetAndUpdateShipmentStatusAsync(string trackingNumber);
+        Task<RerouteResponseDto> RequestRerouteAsync(string trackingNumber, string newAddressNotes);
+
+
+        // === HÀM CŨ (Bị xóa) ===
+        // Task<ShipmentStatusUpdateDto> GetAndUpdateShipmentStatusAsync(string trackingNumber);
     }
 }

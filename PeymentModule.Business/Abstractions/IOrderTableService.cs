@@ -15,6 +15,6 @@ namespace PaymentModule.Business.Abstractions
         Task CreateShipmentForOrderAsync(int orderId);
         Task<List<OrderTable>> GetOrderHistoryAsync(int buyerId);
         Task<OrderTable> GetOrderDetailsAsync(int orderId);
-        Task<bool> SyncShipmentStatusAsync(int orderId);
+        Task UpdateOrderStatusFromWebhookAsync(string trackingNumber, string newStatus, string message);
     }
 }

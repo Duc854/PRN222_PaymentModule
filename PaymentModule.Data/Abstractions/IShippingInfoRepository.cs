@@ -8,5 +8,7 @@ namespace PaymentModule.Data.Abstractions
         Task<ShippingInfo> GetByOrderIdAsync(int orderId);
         Task<ShippingInfo> GetByTrackingNumberAsync(string trackingNumber);
         Task UpdateStatusAsync(int shippingInfoId, string newStatus);
+        Task UpdateAsync(ShippingInfo shippingInfo);
+        Task<ShippingInfo> GetByIdAsync(int id);
     }
 }

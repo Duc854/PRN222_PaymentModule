@@ -1,14 +1,17 @@
-﻿using System.Security.Claims;
+﻿using System.Linq;
+using System.Security.Claims;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using PaymentModule.Business.Abstraction;
 using PaymentModule.Business.Abstractions;
 using PaymentModule.Business.Dtos.OutputDtos;
 using PaymentModule.Data;
+using PaymentModule.Data.Abstractions;
 using PaymentModule.Data.Entities;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace PaymentModule.Web.Controllers
 {
@@ -17,11 +20,20 @@ namespace PaymentModule.Web.Controllers
     {
         private readonly CloneEbayDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly IShippingInfoRepository _shippingInfoRepo; // Inject MỚI
+        private readonly IShippingService _shippingService; // Inject MỚI
 
-        public OrderController(CloneEbayDbContext context, IEmailService emailService)
+        public OrderController(
+            CloneEbayDbContext context,
+            IEmailService emailService,
+            IShippingInfoRepository shippingInfoRepo, // Inject MỚI
+            IShippingService shippingService // Inject MỚI
+            )
         {
             _context = context;
             _emailService = emailService;
+            _shippingInfoRepo = shippingInfoRepo; // Inject MỚI
+            _shippingService = shippingService; // Inject MỚI
         }
 
         // ✅ Receive checkout data and store in Session
@@ -202,60 +214,79 @@ namespace PaymentModule.Web.Controllers
             return View(orders);
         }
 
-        // ✅ Order tracking + status sync
+        // ✅ Order tracking
         [HttpGet("OrderTracking/{id}")]
         public async Task<IActionResult> OrderTracking(int id,
             [FromServices] IOrderTableService orderTableService)
         {
             var order = await orderTableService.GetOrderDetailsAsync(id);
 
-            if (order == null || order.ShippingInfos == null)
+            if (order == null)
             {
-                ViewBag.ErrorMessage = "No shipping information found for this order.";
+                ViewBag.ErrorMessage = "Không tìm thấy đơn hàng.";
                 return View("OrderTrackingError");
             }
+
+            // (Chuyển logic kiểm tra ShippingInfo vào View)
 
             return View(order);
         }
 
-        [HttpPost("SyncStatus/{id}")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SyncShippingStatus(int id,
-            [FromServices] IOrderTableService orderTableService)
+        [HttpGet("ManageShipment/{shippingInfoId}")]
+        public async Task<IActionResult> ManageShipment(int shippingInfoId)
         {
-            bool changed = await orderTableService.SyncShipmentStatusAsync(id);
-            if (changed)
+            var shippingInfo = await _shippingInfoRepo.GetByIdAsync(shippingInfoId);
+            if (shippingInfo == null) return NotFound();
+
+            // Lấy địa chỉ gốc để hiển thị
+            var order = await _context.OrderTables
+                .Include(o => o.Address) // Phải Include Address
+                .FirstOrDefaultAsync(o => o.Id == shippingInfo.OrderId);
+
+            if (order != null && order.BuyerId.HasValue)
             {
-                // 2️⃣ Lấy thông tin đơn hàng và người dùng để gửi mail
-                var order = _context.OrderTables
-                .Where(o => o.Id == id)
-                .Select(o => new
+                HttpContext.Session.SetInt32("UserId", order.BuyerId.Value);
+            }
+
+            ViewBag.OrderAddress = order?.Address;
+            return View(shippingInfo); // Tạo một View tên là ManageShipment.cshtml
+        }
+
+        // === HÀM MỚI (Xử lý Reroute) ===
+        [HttpPost("RequestReroute")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RequestReroute(int shippingInfoId, string newAddressNotes)
+        {
+            var shippingInfo = await _shippingInfoRepo.GetByIdAsync(shippingInfoId);
+            if (shippingInfo == null) return NotFound();
+
+            if (string.IsNullOrEmpty(newAddressNotes))
+            {
+                TempData["RerouteError"] = "Vui lòng nhập ghi chú địa chỉ mới.";
+                return RedirectToAction("ManageShipment", new { shippingInfoId });
+            }
+
+            try
+            {
+                // Gọi service Reroute
+                var response = await _shippingService.RequestRerouteAsync(shippingInfo.TrackingNumber, newAddressNotes);
+
+                if (response.Success)
                 {
-                    o.Id,
-                    o.Status,
-                    Email = o.Buyer.Email,
-                    Username = o.Buyer.Username
-                })
-                .FirstOrDefault();  
-
-
-                if (order != null && !string.IsNullOrEmpty(order.Email))
+                    TempData["RerouteSuccess"] = response.Message;
+                }
+                else
                 {
-                    string subject = $"[CloneEbay] Trạng thái đơn hàng #{order.Id} đã thay đổi";
-                    string body = $@"
-                    <h3>Xin chào, {order.Username}!</h3>
-                    <p>Đơn hàng <b>#{order.Id}</b> của bạn hiện đang ở trạng thái: 
-                    <b>{order.Status}</b>.</p>
-                    <p>Bạn có thể theo dõi chi tiết đơn hàng tại trang <a href='{Url.Action("OrderTracking", "Order", new { id = order.Id }, Request.Scheme)}'>Order Tracking</a>.</p>
-                    <hr/>
-                    <p>CloneEbay Team</p>";
-
-                    await _emailService.SendEmailAsync(order.Email, subject, body);
-
-                    //logger.LogInformation("Đã gửi email cập nhật trạng thái cho {Email}", order.Email);
+                    TempData["RerouteError"] = response.Message;
                 }
             }
-            return RedirectToAction("OrderTracking", new { id });
+            catch (Exception ex)
+            {
+                TempData["RerouteError"] = $"Lỗi hệ thống: {ex.Message}";
+            }
+
+            // Quay về trang tracking của đơn hàng
+            return RedirectToAction("OrderTracking", new { id = shippingInfo.OrderId });
         }
 
         // ✅ Popup API: Get all addresses of current user

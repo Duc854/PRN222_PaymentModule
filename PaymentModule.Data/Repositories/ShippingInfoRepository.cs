@@ -41,5 +41,20 @@ namespace PaymentModule.Data.Repositories
                 await _context.SaveChangesAsync();
             }
         }
+
+        public async Task<ShippingInfo> GetByIdAsync(int id)
+        {
+            return await _context.ShippingInfos
+                .FirstOrDefaultAsync(s => s.Id == id);
+        }
+
+        /// <summary>
+        /// (Hàm mới) Cập nhật đối tượng
+        /// </summary>
+        public async Task UpdateAsync(ShippingInfo shippingInfo)
+        {
+            _context.ShippingInfos.Update(shippingInfo);
+            await _context.SaveChangesAsync();
+        }
     }
 }

@@ -84,6 +84,8 @@ namespace PaymentModule.Web
                 });
             });
 
+            builder.Services.AddHttpClient();
+
             var app = builder.Build();
 
             // === Middleware pipeline ===
