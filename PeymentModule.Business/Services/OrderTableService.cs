@@ -28,6 +28,7 @@ namespace PaymentModule.Business.Services
         private readonly IShippingFeeService _shippingFeeService;
         private readonly ILogger<OrderTableService> _logger;
         private readonly AsyncRetryPolicy _shippingRetryPolicy;
+        private readonly IEmailService _emailService;
 
         public OrderTableService(
             IOrderTableRepository orderTableRepo,
@@ -38,7 +39,8 @@ namespace PaymentModule.Business.Services
             IShippingService shippingService,
             IShippingInfoRepository shippingInfoRepo,
             IShippingFeeService shippingFeeService,
-            ILogger<OrderTableService> logger
+            ILogger<OrderTableService> logger,
+            IEmailService emailService
             )
         {
             _orderTableRepo = orderTableRepo;
@@ -50,6 +52,7 @@ namespace PaymentModule.Business.Services
             _shippingService = shippingService;
             _shippingInfoRepo = shippingInfoRepo;
             _logger = logger;
+            _emailService = emailService;
 
             // Cấu hình Retry Policy (Thử lại 3 lần, 1s, 2s, 4s)
             _shippingRetryPolicy = Policy
@@ -300,42 +303,76 @@ namespace PaymentModule.Business.Services
             return await _orderTableRepo.GetOrderDetailsAsync(orderId);
         }
 
-        // HÀM ĐỒNG BỘ TRẠNG THÁI
-        public async Task<bool> SyncShipmentStatusAsync(int orderId)
+        public async Task UpdateOrderStatusFromWebhookAsync(string trackingNumber, string newStatus, string message)
         {
-            _logger.LogInformation("Bắt đầu đồng bộ trạng thái cho Order {OrderId}", orderId);
+            _logger.LogInformation($"[Webhook Service] Cập nhật {trackingNumber} sang {newStatus}");
 
-            // 1. Lấy thông tin vận đơn từ DB
-            var shippingInfo = await _shippingInfoRepo.GetByOrderIdAsync(orderId);
+            // 1. Cập nhật bảng ShippingInfo
+            var shippingInfo = await _shippingInfoRepo.GetByTrackingNumberAsync(trackingNumber);
             if (shippingInfo == null)
             {
-                _logger.LogWarning("Không tìm thấy ShippingInfo cho Order {OrderId}", orderId);
-                return false;
+                _logger.LogWarning($"[Webhook Service] Không tìm thấy {trackingNumber} để cập nhật.");
+                return;
             }
 
-            try
-            {
-                // 2. Gọi API Giả lập để lấy trạng thái MỚI
-                // (Hàm này chúng ta đã tạo ở MockShippingService)
-                var update = await _shippingService.GetAndUpdateShipmentStatusAsync(shippingInfo.TrackingNumber);
+            var oldStatus = shippingInfo.Status;
+            shippingInfo.Status = newStatus;
 
-                if (update.Success && update.NewStatus != shippingInfo.Status)
+            // Cập nhật thêm Notes (ghi chú) nếu có
+            if (!string.IsNullOrEmpty(message))
+            {
+                shippingInfo.Notes = message;
+            }
+            await _shippingInfoRepo.UpdateAsync(shippingInfo); // Cần hàm UpdateAsync() trong Repo
+
+            // 2. Cập nhật bảng Order
+            var order = await _orderTableRepo.GetOrderTableByIdAsync((int)shippingInfo.OrderId);
+            if (order == null) return;
+
+            string oldOrderStatus = order.Status;
+            string newOrderStatus = order.Status;
+
+            // Ánh xạ trạng thái vận đơn -> trạng thái đơn hàng
+            if (newStatus == ShippingStatusConstants.InTransit ||
+                newStatus == ShippingStatusConstants.InTransit_Rerouted ||
+                newStatus == ShippingStatusConstants.OutForDelivery)
+            {
+                newOrderStatus = "Shipping";
+            }
+            else if (newStatus == ShippingStatusConstants.Delivered)
+            {
+                newOrderStatus = "Delivered";
+            }
+            else if (newStatus == ShippingStatusConstants.Failed)
+            {
+                newOrderStatus = "Failed";
+            }
+
+            if (oldOrderStatus != newOrderStatus)
+            {
+                order.Status = newOrderStatus;
+                await _orderTableRepo.UpdateOrderTableAsync(order);
+            }
+
+            // 3. Gửi Email thông báo (chỉ gửi khi trạng thái thay đổi)
+            if (oldStatus != newStatus)
+            {
+                var user = await _userRepo.GetUserInfoById(order.BuyerId.Value);
+                if (user != null && !string.IsNullOrEmpty(user.Email))
                 {
-                    // 3. Nếu trạng thái có thay đổi, cập nhật vào DB
-                    _logger.LogInformation("Cập nhật trạng thái Order {OrderId} từ {OldStatus} sang {NewStatus}",
-                        orderId, shippingInfo.Status, update.NewStatus);
+                    string subject = $"[CloneEbay] Cập nhật đơn hàng #{order.Id}";
+                    string body = $@"
+                    <h3>Xin chào, {user.Username}!</h3>
+                    <p>Đơn hàng <b>#{order.Id}</b> của bạn đã được cập nhật trạng thái:</p>
+                    <p><b>Trạng thái mới: {newStatus}</b></p>
+                    <p><b>Chi tiết:</b> {message}</p>
+                    <hr/>
+                    <p>CloneEbay Team</p>";
 
-                    await _shippingInfoRepo.UpdateStatusAsync(shippingInfo.Id, update.NewStatus);
-                    return true;
+                    // Không await để webhook trả về nhanh
+                    _ = _emailService.SendEmailAsync(user.Email, subject, body);
+                    _logger.LogInformation($"[Webhook Service] Đã gửi mail cho {user.Email} (Order {order.Id})");
                 }
-
-                _logger.LogInformation("Trạng thái Order {OrderId} không thay đổi.", orderId);
-                return true;
-            }
-            catch (ShippingApiException ex)
-            {
-                _logger.LogError(ex, "Lỗi API khi đồng bộ trạng thái Order {OrderId}", orderId);
-                return false;
             }
         }
     }

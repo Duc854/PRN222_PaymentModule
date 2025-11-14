@@ -19,4 +19,8 @@ public partial class ShippingInfo
     public DateTime? EstimatedArrival { get; set; }
 
     public virtual OrderTable? Order { get; set; }
+
+    public bool ReroutedOnce { get; set; } = false;
+
+    public string? Notes { get; set; }
 }

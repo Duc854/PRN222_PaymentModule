@@ -41,7 +41,7 @@ namespace PaymentModule.Web.Controllers
             int userId = int.Parse(userIdClaim);
             var cart = await _orderTableService.GetCartByUserId(new UserCartInputDto { UserId = userId });
 
-            if (cart.OrderTableId == 0) // Giả sử DTO trả về ID của giỏ hàng
+            if (cart.OrderTableId == 0)
                 return BadRequest("Cart not found.");
 
             var fee = await _shippingFeeService.CalculateShippingFeeAsync(cart.OrderTableId, addressId);

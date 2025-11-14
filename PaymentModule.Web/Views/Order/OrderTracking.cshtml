@@ -1,100 +1,140 @@
 ﻿@model PaymentModule.Data.Entities.OrderTable
 @using PaymentModule.Data.Entities 
+@using PaymentModule.Business.Services
 @{
     ViewData["Title"] = "Order Tracking";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
-    // Lấy thông tin vận đơn ra cho dễ dùng
+    // Lấy thông tin vận đơn MỚI NHẤT
     var shippingInfo = Model.ShippingInfos.OrderByDescending(s => s.Id).FirstOrDefault();
-
-    @if (shippingInfo == null)
-    {
-        <p>Không tìm thấy thông tin vận đơn.</p>
-        return; 
-    }
-
-    // Logic quyết định timeline
-    bool confirmed = true; // Luôn luôn
-    bool processing = shippingInfo.Status == ShippingStatusConstants.Processing || 
-                      shippingInfo.Status == ShippingStatusConstants.InTransit || 
-                      shippingInfo.Status == ShippingStatusConstants.Delivered;
-                      
-    bool inTransit = shippingInfo.Status == ShippingStatusConstants.InTransit || 
-                     shippingInfo.Status == ShippingStatusConstants.Delivered;
-                     
-    bool delivered = shippingInfo.Status == ShippingStatusConstants.Delivered;
-
-    bool failed = shippingInfo.Status == ShippingStatusConstants.Failed;
 }
 
 <section class="order-tracking-page">
     <div class="tracking-container">
         <h2 class="page-title">Theo dõi đơn hàng</h2>
 
-        <div class="tracking-header">
-            <p>Mã đơn hàng: <strong>#@Model.Id</strong></p>
-            <p>Mã vận đơn: <strong>@shippingInfo.TrackingNumber</strong></p>
-            <p>Đơn vị vận chuyển: <strong>@shippingInfo.Carrier</strong></p>
-        </div>
-
-        @if (failed)
+        @if (shippingInfo == null)
         {
-            <div class="tracking-timeline">
-                <div class="step failed active"> <div class="circle"></div>
-                    <div class="content">
-                        <h4>Giao hàng thất bại</h4>
-                        <p>Đã xảy ra lỗi trong quá trình vận chuyển. Vui lòng liên hệ hỗ trợ.</p>
-                    </div>
-                </div>
-            </div>
+            <div class="alert alert-warning">Chưa có thông tin vận đơn cho đơn hàng này.</div>
+            <a href="/order/OrderHistory" class="btn-back">← Quay lại lịch sử</a>
         }
         else
         {
-            <div class="tracking-timeline">
-                <div class="step @(confirmed ? "completed" : "")">
-                    <div class="circle"></div>
-                    <div class="content">
-                        <h4>Đơn hàng đã được xác nhận</h4>
-                        <p>@Model.OrderDate.Value.ToLocalTime().ToString("dd/MM/yyyy - HH:mm")</p>
-                    </div>
-                </div>
+            // === LOGIC MỚI ===
+            string status = shippingInfo.Status ?? ShippingStatusConstants.Processing;
+            
+            bool confirmed = true; // Luôn luôn
+            
+            bool processing = status == ShippingStatusConstants.Processing || 
+                              status == ShippingStatusConstants.InTransit || 
+                              status == ShippingStatusConstants.OutForDelivery ||
+                              status == ShippingStatusConstants.InTransit_Rerouted ||
+                              status == ShippingStatusConstants.Delivered;
+                      
+            bool inTransit = status == ShippingStatusConstants.InTransit || 
+                             status == ShippingStatusConstants.OutForDelivery ||
+                             status == ShippingStatusConstants.InTransit_Rerouted ||
+                             status == ShippingStatusConstants.Delivered;
 
-                <div class="step @(processing ? "completed" : "") @(shippingInfo.Status == ShippingStatusConstants.Processing ? "active" : "")">
-                    <div class="circle"></div>
-                    <div class="content">
-                        <h4>Đang xử lý & đóng gói</h4>
-                        <p>@(!processing ? "Chưa cập nhật" : "Đang chuẩn bị hàng cho vận chuyển...")</p>
-                    </div>
-                </div>
+            bool rerouted = status == ShippingStatusConstants.InTransit_Rerouted;
 
-                <div class="step @(inTransit ? "completed" : "") @(shippingInfo.Status == ShippingStatusConstants.InTransit ? "active" : "")">
-                    <div class="circle"></div>
-                    <div class="content">
-                        <h4>Đơn hàng đang được vận chuyển</h4>
-                        <p>@(!inTransit ? "Chưa cập nhật" : $"Dự kiến giao: {shippingInfo.EstimatedArrival?.ToLocalTime().ToString("dd/MM/yyyy")}")</p>
-                    </div>
-                </div>
+            bool outForDelivery = status == ShippingStatusConstants.OutForDelivery ||
+                                  status == ShippingStatusConstants.Delivered;
+                     
+            bool delivered = status == ShippingStatusConstants.Delivered;
+            bool failed = status == ShippingStatusConstants.Failed;
+            // === KẾT THÚC LOGIC MỚI ===
 
-                <div class="step @(delivered ? "completed active" : "")">
-                    <div class="circle"></div>
-                    <div class="content">
-                        <h4>Đã giao hàng thành công</h4>
-                        <p>@(!delivered ? "Chưa cập nhật" : "Giao hàng thành công!")</p>
+            <div class="tracking-header">
+                <p>Mã đơn hàng: <strong>#@Model.Id</strong></p>
+                <p>Mã vận đơn: <strong>@shippingInfo.TrackingNumber</strong></p>
+                <p>Đơn vị vận chuyển: <strong>@shippingInfo.Carrier</strong></p>
+            </div>
+
+            // === HIỂN THỊ GHI CHÚ (NOTES) TỪ WEBHOOK ===
+            @if (!string.IsNullOrEmpty(shippingInfo.Notes))
+            {
+                <div class="tracking-notes @(rerouted ? "rerouted" : "")">
+                    <strong>Thông báo mới nhất:</strong> @shippingInfo.Notes
+                </div>
+            }
+            
+            @if (failed)
+            {
+                <div class="tracking-timeline">
+                    <div class="step failed active"> <div class="circle"></div>
+                        <div class="content">
+                            <h4>Giao hàng thất bại</h4>
+                            <p>@(shippingInfo.Notes ?? "Đã xảy ra lỗi. Vui lòng liên hệ hỗ trợ.")</p>
+                        </div>
                     </div>
                 </div>
+            }
+            else
+            {
+                <div class="tracking-timeline">
+                    <div class="step @(confirmed ? "completed" : "")">
+                        <div class="circle"></div>
+                        <div class="content">
+                            <h4>Đơn hàng đã được xác nhận</h4>
+                            <p>@Model.OrderDate.Value.ToLocalTime().ToString("dd/MM/yyyy - HH:mm")</p>
+                        </div>
+                    </div>
+
+                    <div class="step @(processing ? "completed" : "") @(status == ShippingStatusConstants.Processing ? "active" : "")">
+                        <div class="circle"></div>
+                        <div class="content">
+                            <h4>Đang xử lý & đóng gói</h4>
+                            <p>@(!processing ? "Chưa cập nhật" : "Đang chuẩn bị hàng cho vận chuyển...")</p>
+                        </div>
+                    </div>
+
+                    <div class="step @(inTransit ? "completed" : "") @(status == ShippingStatusConstants.InTransit || status == ShippingStatusConstants.InTransit_Rerouted ? "active" : "") @(rerouted ? "rerouted" : "")">
+                        <div class="circle"></div>
+                        <div class="content">
+                            <h4>Đơn hàng đang được vận chuyển</h4>
+                            @if(rerouted)
+                            {
+                                <p class="reroute-text">Đơn hàng đã được đổi hướng (Reroute)</p>
+                            }
+                            else
+                            {
+                                <p>Đơn hàng đã rời kho.</p>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="step @(outForDelivery ? "completed" : "") @(status == ShippingStatusConstants.OutForDelivery ? "active" : "")">
+                        <div class="circle"></div>
+                        <div class="content">
+                            <h4>Tài xế đang giao hàng</h4>
+                            <p>@(!outForDelivery ? "Chưa cập nhật" : $"Dự kiến giao: {shippingInfo.EstimatedArrival?.ToLocalTime().ToString("dd/MM/yyyy")}")</p>
+                        </div>
+                    </div>
+
+                    <div class="step @(delivered ? "completed active" : "")">
+                        <div class="circle"></div>
+                        <div class="content">
+                            <h4>Đã giao hàng thành công</h4>
+                            <p>@(!delivered ? "Chưa cập nhật" : "Giao hàng thành công!")</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="tracking-action">
+                @if (!delivered && !failed)
+                {
+                    // === NÚT MỚI (REROUTE) ===
+                    <a asp-controller="Order" asp-action="ManageShipment" asp-route-shippingInfoId="@shippingInfo.Id" class="btn-manage">
+                        Quản lý Giao hàng (Mô phỏng ĐVVC)
+                    </a>
+                    
+                    // === NÚT CŨ (BỊ XÓA) ===
+                    }
+                <a href="/order/OrderHistory" class="btn-back">← Quay lại lịch sử</a>
             </div>
         }
-
-        <div class="tracking-action">
-            @if (!delivered && !failed)
-            {
-                <form asp-controller="Order" asp-action="SyncShippingStatus" asp-route-id="@Model.Id" method="post" style="display: inline-block; margin-right: 15px;">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-sync">Làm mới trạng thái</button>
-                </form>
-            }
-            <a href="/order/OrderHistory" class="btn-back">← Quay lại lịch sử</a>
-        </div>
     </div>
 </section>
 
@@ -107,13 +147,11 @@
         border-radius: 12px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
-
     .page-title {
         font-size: 24px;
         font-weight: 700;
         margin-bottom: 20px;
     }
-
     .tracking-header {
         background: #fafafa;
         border: 1px solid #ddd;
@@ -121,19 +159,29 @@
         padding: 15px 20px;
         margin-bottom: 30px;
     }
-
+    .tracking-notes {
+        background: #f0f8ff;
+        border: 1px solid #bde0ff;
+        color: #0056b3;
+        border-radius: 10px;
+        padding: 15px 20px;
+        margin-bottom: 30px;
+    }
+    .tracking-notes.rerouted {
+        background: #fff8f0;
+        border-color: #ffe0b3;
+        color: #b36b00;
+    }
     .tracking-timeline {
         position: relative;
         margin-left: 30px;
     }
-
     .step {
         display: flex;
         align-items: flex-start;
         position: relative;
-        margin-bottom: 25px;
+        margin-bottom: 30px; /* Tăng khoảng cách */
     }
-
     .circle {
         width: 16px;
         height: 16px;
@@ -142,8 +190,8 @@
         margin-right: 16px;
         position: relative;
         top: 4px;
+        flex-shrink: 0; /* Thêm */
     }
-
     .step::before {
         content: "";
         position: absolute;
@@ -153,35 +201,35 @@
         height: 100%;
         background: #ddd;
     }
-
     .step.completed .circle {
         background: #00a650;
     }
-
     .step.active .circle {
         background: #0064d2;
     }
-
     .step:last-child::before {
         display: none;
     }
-
     .content h4 {
         margin: 0;
         font-weight: 600;
     }
-
     .content p {
         margin: 4px 0 0 0;
         color: #777;
         font-size: 14px;
     }
-
+    .step.rerouted .content h4 {
+        color: #b36b00;
+    }
+    .step.rerouted p.reroute-text {
+        color: #b36b00;
+        font-weight: 500;
+    }
     .tracking-action {
         text-align: center;
         margin-top: 30px;
     }
-
     .btn-back {
         background: #0064d2;
         color: #fff;
@@ -189,31 +237,20 @@
         border-radius: 30px;
         text-decoration: none;
         font-weight: 600;
+        display: inline-block;
+        margin: 5px;
     }
-
-        .btn-back:hover {
-            background: #0654ba;
-        }
-
+    .btn-back:hover {
+        background: #0654ba;
+    }
     .step.failed .circle {
-        background: #d90000; /* Màu đỏ cho failed */
+        background: #d90000;
     }
     .step.failed.active .content h4 {
         color: #d90000;
     }
-    
-    .btn-back {
-        background: #0064d2;
-        color: #fff;
-        padding: 12px 24px;
-        border-radius: 30px;
-        text-decoration: none;
-        font-weight: 600;
-        display: inline-block; /* Thêm */
-    }
-
-    .btn-sync {
-        background: #00a650; /* Màu xanh lá */
+    .btn-manage {
+        background: #e87700; /* Màu cam */
         color: #fff;
         padding: 12px 24px;
         border-radius: 30px;
@@ -221,11 +258,12 @@
         font-weight: 600;
         border: none;
         cursor: pointer;
-        font-family: inherit; /* Thêm */
-        font-size: inherit; /* Thêm */
+        font-family: inherit;
+        font-size: 15px; /* Giống btn-back */
+        display: inline-block;
+        margin: 5px;
     }
-
-    .btn-sync:hover {
-        background: #008c43;
+    .btn-manage:hover {
+        background: #c26400;
     }
 </style>

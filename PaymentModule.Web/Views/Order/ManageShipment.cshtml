@@ -1,0 +1,485 @@
+@model PaymentModule.Data.Entities.ShippingInfo
+@using PaymentModule.Business.Services 
+@using PaymentModule.Data.Entities
+@{
+    ViewData["Title"] = "Quản lý Vận đơn (Sandbox Portal)";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var orderAddress = ViewBag.OrderAddress as PaymentModule.Data.Entities.Address;
+    bool isSecondTime = Model.ReroutedOnce;
+    
+    // Kiểm tra trạng thái có bị khóa không (Đã giao hoặc Thất bại)
+    bool isLocked = Model.Status == ShippingStatusConstants.Delivered || 
+                    Model.Status == ShippingStatusConstants.Failed;
+}
+
+<div class="portal-wrapper">
+    <div class="portal-container">
+        <div class="portal-header">
+            <h1 class="portal-title"><i class="fas fa-shipping-fast"></i> Sandbox Express Portal</h1>
+            <span class="portal-badge">Guest Mode</span>
+        </div>
+
+        <div class="portal-card">
+            <div class="tracking-header">
+                <div class="tracking-info">
+                    <label>Tracking ID</label>
+                    <h2 class="tracking-number">@Model.TrackingNumber</h2>
+                </div>
+                <div class="tracking-status-box">
+                    <label>Current Status</label>
+                    @if (Model.Status == ShippingStatusConstants.Delivered)
+                    {
+                        <h3 class="status-text text-success"><i class="fas fa-check-circle"></i> Delivered</h3>
+                    }
+                    else
+                    {
+                        <h3 class="status-text">@Model.Status</h3>
+                    }
+                </div>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="section-block">
+                <h4>Địa chỉ giao hàng gốc</h4>
+                <div class="address-box">
+                    @if (orderAddress != null)
+                    {
+                        <p class="addr-name">@orderAddress.FullName</p>
+                        <p class="addr-text">@orderAddress.Street, @orderAddress.City, @orderAddress.Country</p>
+                        <p class="addr-text">Tel: @orderAddress.Phone</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Không tìm thấy thông tin địa chỉ.</p>
+                    }
+                </div>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="section-block">
+                <div class="reroute-header">
+                    <h4>Thay đổi điểm giao hàng (Reroute)</h4>
+                    @if(isSecondTime) { <span class="fee-badge warning">Phí thay đổi: $5.00</span> } 
+                    else { <span class="fee-badge success">Miễn phí lần đầu</span> }
+                </div>
+
+                @if (isLocked)
+                {
+                    <div class="alert alert-success mt-3">
+                        <i class="fas fa-lock"></i> 
+                        <strong>Đơn hàng đã hoàn tất vận chuyển.</strong><br>
+                        Bạn không thể thay đổi địa chỉ hoặc chuyển hướng gói hàng vào lúc này.
+                    </div>
+                }
+                else
+                {
+                    <p class="instruction-text">
+                        Bạn có thể yêu cầu thay đổi địa chỉ nhận hàng hoặc chuyển hướng đến tủ Locker tự động.
+                    </p>
+
+                    <form asp-action="RequestReroute" asp-controller="Order" method="post" id="rerouteForm">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="shippingInfoId" value="@Model.Id" />
+                        
+                        <div class="reroute-input-group">
+                            <input type="text" class="custom-input" id="selectedLocationDisplay" 
+                                   name="newAddressNotes" 
+                                   placeholder="Chưa chọn địa chỉ mới..." 
+                                   readonly required />
+                            <button type="button" class="btn-select-location" id="btnOpenAddressModal">
+                                Chọn Địa chỉ / Locker
+                            </button>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button type="submit" class="btn-confirm-reroute">
+                                @if(isSecondTime) { <span>Xác nhận đổi & Trả phí $5.00</span> } 
+                                else { <span>Xác nhận thay đổi</span> }
+                            </button>
+                        </div>
+                    </form>
+                }
+                </div>
+        </div>
+
+        <div class="back-link-container">
+            <a asp-action="OrderTracking" asp-controller="Order" asp-route-id="@Model.OrderId" class="back-link">
+                &larr; Quay lại trang theo dõi đơn hàng
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="addressModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Chọn điểm nhận hàng</h3>
+            <button type="button" class="btn-close-custom" id="closeModal">&times;</button>
+        </div>
+        <div class="modal-tabs">
+            <button class="tab-btn active" data-tab="my-address">Địa chỉ của tôi</button>
+            <button class="tab-btn" data-tab="locker">Sandbox Locker</button>
+        </div>
+        <div id="tab-my-address" class="tab-content active">
+            <div id="addressList" class="address-list">Loading...</div>
+            <hr />
+            <h5>Thêm địa chỉ mới:</h5>
+            <form id="addNewAddressForm">
+                <input type="text" name="fullName" class="modal-input" placeholder="Họ tên" required />
+                <input type="text" name="phone" class="modal-input" placeholder="Số điện thoại" required />
+                <input type="text" name="street" class="modal-input" placeholder="Địa chỉ" required />
+                <input type="text" name="city" class="modal-input" placeholder="Thành phố" required />
+                <input type="text" name="country" class="modal-input" placeholder="Quốc gia" required />
+                <button type="submit" class="btn-save-addr">Lưu & Chọn</button>
+            </form>
+        </div>
+        <div id="tab-locker" class="tab-content">
+            <p class="small-text">Chọn tủ Locker:</p>
+            <div id="lockerList" class="address-list">
+                <button type="button" class="btn-address-option" onclick="selectLocker('LOCKER-01: Aeon Mall LB (Box 12)')">
+                    <strong>Aeon Mall Long Bien</strong><br/>Locker Box #12
+                </button>
+                <button type="button" class="btn-address-option" onclick="selectLocker('LOCKER-02: Landmark 81 (Box 55)')">
+                    <strong>Landmark 81</strong><br/>Locker Box #55
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Layout chính */
+    body {
+        background-color: #f5f5f5; /* Nền xám nhẹ giống eBay checkout */
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    .portal-wrapper {
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px;
+    }
+
+    .portal-container {
+        width: 100%;
+        max-width: 900px; /* Giới hạn chiều rộng để trông gọn gàng */
+    }
+
+    /* Header */
+    .portal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .portal-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #333;
+        margin: 0;
+    }
+
+    .portal-badge {
+        background: #333;
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    /* Card chính */
+    .portal-card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 40px; /* Padding rộng rãi */
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+    }
+
+    /* Tracking Section */
+    .tracking-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 30px;
+    }
+
+    .tracking-info label, .tracking-status-box label {
+        font-size: 13px;
+        color: #707070;
+        display: block;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .tracking-number {
+        font-size: 32px;
+        font-weight: 800;
+        color: #000;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+
+    .status-text {
+        font-size: 24px;
+        font-weight: 600;
+        color: #0064d2; /* Màu xanh eBay */
+        margin: 0;
+    }
+
+    .divider {
+        border: 0;
+        border-top: 1px solid #eee;
+        margin: 30px 0;
+    }
+
+    /* Address Box */
+    .section-block h4 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #333;
+    }
+
+    .address-box {
+        background: #f9f9f9; /* Nền xám nhạt cho box địa chỉ */
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #eee;
+    }
+
+    .addr-name { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+    .addr-text { margin: 0; color: #555; line-height: 1.5; }
+
+    /* Reroute Section */
+    .reroute-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+
+    .fee-badge {
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    .fee-badge.success { background: #e8f5e9; color: #2e7d32; }
+    .fee-badge.warning { background: #fff3e0; color: #e65100; }
+
+    .instruction-text {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    .reroute-input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .custom-input {
+        flex: 1;
+        padding: 12px 15px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 15px;
+        background: #fdfdfd;
+    }
+
+    .btn-select-location {
+        padding: 0 20px;
+        background: #fff;
+        border: 1px solid #0064d2;
+        color: #0064d2;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .btn-select-location:hover {
+        background: #f0f7ff;
+    }
+
+    .btn-confirm-reroute {
+        background: #0064d2;
+        color: white;
+        border: none;
+        padding: 14px 40px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 30px; /* Nút bo tròn kiểu eBay */
+        cursor: pointer;
+        width: 100%;
+        transition: background 0.2s;
+    }
+    .btn-confirm-reroute:hover {
+        background: #0053a8;
+    }
+
+    /* Back Link */
+    .back-link-container {
+        text-align: center;
+    }
+    .back-link {
+        color: #0064d2;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    /* Modal Styles (Cập nhật nhẹ) */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: white; width: 500px; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .modal-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #fff; }
+    .btn-close-custom { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+    
+    .modal-tabs { display: flex; background: #f4f4f4; border-bottom: 1px solid #ddd; }
+    .tab-btn { flex: 1; padding: 14px; border: none; background: none; cursor: pointer; font-weight: 600; color: #555; }
+    .tab-btn.active { background: white; color: #0064d2; border-bottom: 3px solid #0064d2; }
+    .tab-content { display: none; padding: 20px; max-height: 60vh; overflow-y: auto; }
+    .tab-content.active { display: block; }
+
+    .modal-input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
+    .row-inputs { display: flex; gap: 10px; }
+    .btn-save-addr { width: 100%; background: #0064d2; color: white; border: none; padding: 10px; border-radius: 20px; cursor: pointer; font-weight: bold; margin-top: 10px;}
+    
+    .btn-address-option { width: 100%; text-align: left; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; background: white; cursor: pointer; transition: 0.2s; }
+    .btn-address-option:hover { border-color: #0064d2; background: #f5faff; }
+    .small-text { font-size: 13px; color: #666; margin-bottom: 10px; }
+
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const modal = document.getElementById("addressModal");
+        const btnOpen = document.getElementById("btnOpenAddressModal");
+        const btnClose = document.getElementById("closeModal");
+        const listContainer = document.getElementById("addressList");
+        const addForm = document.getElementById("addNewAddressForm");
+        const displayInput = document.getElementById("selectedLocationDisplay");
+
+        // Tab Logic
+        const tabs = document.querySelectorAll(".tab-btn");
+        const contents = document.querySelectorAll(".tab-content");
+        tabs.forEach(tab => {
+            tab.addEventListener("click", () => {
+                tabs.forEach(t => t.classList.remove("active"));
+                contents.forEach(c => c.classList.remove("active"));
+                tab.classList.add("active");
+                document.getElementById(`tab-${tab.dataset.tab}`).classList.add("active");
+            });
+        });
+
+        // Modal Logic
+        if(btnOpen) {
+            btnOpen.addEventListener("click", () => { modal.classList.add("show"); loadAddresses(); });
+        }
+        btnClose.addEventListener("click", () => modal.classList.remove("show"));
+        window.addEventListener("click", e => { if(e.target === modal) modal.classList.remove("show"); });
+
+        // [FIX] HÀM LOAD ADDRESS
+        async function loadAddresses() {
+            listContainer.innerHTML = "<p style='padding:10px;'>Đang kết nối...</p>";
+            try {
+                const res = await fetch("/order/GetAddresses");
+                
+                // Kiểm tra lỗi HTTP
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+
+                const data = await res.json();
+                listContainer.innerHTML = "";
+
+                // Kiểm tra xem data có phải là mảng không
+                if (!Array.isArray(data) || data.length === 0) {
+                    listContainer.innerHTML = "<p class='text-muted' style='padding:10px;'>Bạn chưa lưu địa chỉ nào.</p>";
+                    return;
+                }
+
+                data.forEach(a => {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.className = "btn-address-option";
+                    btn.innerHTML = `<strong>${a.fullName}</strong><br>${a.street}, ${a.city}`;
+                    btn.onclick = () => selectLocation(`${a.fullName} - ${a.street}, ${a.city}, ${a.country}`);
+                    listContainer.appendChild(btn);
+                });
+
+            } catch(err) { 
+                console.error("Lỗi Load Address:", err);
+                listContainer.innerHTML = `<p style='color:red; padding:10px;'>Lỗi tải địa chỉ: ${err.message}</p>`;
+            }
+        }
+
+        // Add New Address
+        addForm.addEventListener("submit", async e => {
+            e.preventDefault();
+            const formData = Object.fromEntries(new FormData(addForm).entries());
+            
+            try {
+                const res = await fetch("/order/SaveAddress", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(formData)
+                });
+                
+                if(res.ok) {
+                    const addrString = `${formData.fullName} - ${formData.street}, ${formData.city}, ${formData.country}`;
+                    selectLocation(addrString);
+                } else {
+                    alert("Lỗi khi lưu địa chỉ mới.");
+                }
+            } catch(err) {
+                console.error(err);
+                alert("Có lỗi xảy ra khi lưu địa chỉ.");
+            }
+        });
+
+        window.selectLocation = (str) => {
+            displayInput.value = str;
+            modal.classList.remove("show");
+        };
+        window.selectLocker = (str) => selectLocation(str);
+
+        // Confirm logic
+        const rerouteForm = document.getElementById("rerouteForm");
+        if(rerouteForm) {
+            rerouteForm.addEventListener("submit", (e) => {
+                if(!displayInput.value) {
+                    e.preventDefault();
+                    alert("Vui lòng chọn địa chỉ mới hoặc Locker.");
+                    return;
+                }
+                const isSecond = @(isSecondTime.ToString().ToLower());
+                if(isSecond) {
+                    if(!confirm("Đây là lần thay đổi thứ 2. Phí $5.00. Đồng ý?")) e.preventDefault();
+                }
+            });
+        }
+    });
+</script>
+
+@if (TempData["RerouteError"] != null)
+{
+    <div class="alert alert-danger position-fixed bottom-0 end-0 m-3" style="z-index: 3000;">
+        <strong>Lỗi:</strong> @TempData["RerouteError"]
+    </div>
+}
+@if (TempData["RerouteSuccess"] != null)
+{
+    <div class="alert alert-success position-fixed bottom-0 end-0 m-3" style="z-index: 3000;">
+        <strong>Thành công:</strong> @TempData["RerouteSuccess"]
+    </div>
+}
